@@ -19,19 +19,30 @@ If you find this code useful, we kindly request that you cite our [publication](
 
 
 ## Using `PowerModelsWildfire`
-Below is a basic example of how to run the OPS problem.
+Below is a basic example of how to load case data, run the OPS problem and access the solutions. For more information about the modeling of the optimization problem, the definitions of the risk values for `"power_risk"` and `"base_risk"` for each component and the system-wide trade-off parameter `"risk_weight"`, we refer to the publication listed above.
+
 ```Julia
 using PowerModels, PowerModelsWildfire
 using Cbc
 
-PMW_path = joinpath(dirname(pathof(PowerModelsWildfire)), "..")
-case = parse_file("$(PMW_path)/test/networks/case14_risk.m")
-case["risk_weight"] = 0.15 # weight <0.5 prefers load
+# Load case data
+case = parse_file("case14")#_risk.m")
 
+# See the wildfire risk values of branch number 12
+println(case["branch"]["12"]["power_risk"])
+println(case["branch"]["12"]["base_risk"])
+
+# Set risk parameter which determines trade-off between serving load and mitigating wildfire risk
+case["risk_weight"] = 0.15 # values between 0 and 1, smaller values emphasize load delivery
+
+# Run OPS problem
 solution = PowerModelsWildfire.run_ops(case, DCPPowerModel, Cbc.Optimizer);
+
+# Check whether branch 12 was deenergized
+println(solution["solution"]["branch"]["12"]["br_status"])  # 0.0 indicates off, 1.0 indicates on
 ```
 
-Running the OPS problem requires the definition of risk values for each component. These can be added directly to a matpower file as seen in the test networks in [PowerModelsWildfire/Test/networks](https://github.com/WISPO-POP/PowerModelsWildfire.jl/tree/master/test/networks). Alternatively, they can be added to the PowerModels dictionary by adding the key `"power_risk"` and `"base_risk"` to each component, as illustrated below.
+Running the OPS problem requires the definition of risk values `"power_risk"` and `"base_risk"` for each component. These can be added directly to a matpower file as seen in the test networks in [PowerModelsWildfire/Test/networks](https://github.com/WISPO-POP/PowerModelsWildfire.jl/tree/master/test/networks). Alternatively, they can be added to the PowerModels dictionary by adding the key `"power_risk"` and `"base_risk"` to each component, as illustrated below.
 
 ```Julia
 for comp_type in ["bus","gen","branch","load"]
@@ -41,4 +52,3 @@ for comp_type in ["bus","gen","branch","load"]
   end
 end
 ```
-
