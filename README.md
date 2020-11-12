@@ -6,7 +6,10 @@ The package is currently unregistered.  You can add the package using the comman
 ```
 Pkg> add https://github.com/WISPO-POP/PowerModelsWildfire.jl.git
 ```
-If you find this code useful, we kindly request that you cite our [publication](https://arxiv.org/abs/2004.07156):
+
+In addition to the code itself, this package also contains the test case data we used in our publication. This data can be downloaded [here](https://github.com/WISPO-POP/PowerModelsWildfire.jl/blob/master/test/networks/RTS_GMLC_risk.m).
+
+We hope you will find this code and/or the test case useful! If you want to use either the code or the test case, we kindly request that you cite our [publication](https://arxiv.org/abs/2004.07156):
 
 ```
 @article{rhodes2020balancing,
