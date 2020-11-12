@@ -26,7 +26,7 @@ using PowerModels, PowerModelsWildfire
 using Cbc
 
 # Load case data
-case = parse_file("case14")#_risk.m")
+case = parse_file("case14_risk.m")
 
 # See the wildfire risk values of branch number 12
 println(case["branch"]["12"]["power_risk"])
