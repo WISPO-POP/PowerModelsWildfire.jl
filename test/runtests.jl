@@ -17,9 +17,9 @@ mip_optimizer = JuMP.optimizer_with_attributes(Cbc.Optimizer, "logLevel"=>0)
 @testset "PowerModelsWildfire" begin
 
     @testset "OPS" begin
-        @testset "test case5_sys1 consistency" begin
+        @testset "test case5_risk_sys1 consistency" begin
             # sufficient gen on all load buses -> turn off all branches
-            case = PowerModels.parse_file("./networks/case5_sys1.m")
+            case = PowerModels.parse_file("./networks/case5_risk_sys1.m")
             result = PowerModelsWildfire.run_ops(case, PowerModels.DCPPowerModel, mip_optimizer);
             @test result["termination_status"] == OPTIMAL
 
@@ -36,9 +36,9 @@ mip_optimizer = JuMP.optimizer_with_attributes(Cbc.Optimizer, "logLevel"=>0)
             @test isapprox(case["branch"]["6"]["br_status"], 0, atol=1e-4)
         end
 
-        @testset "test case5_sys2 consistency" begin
+        @testset "test case5_risk_sys2 consistency" begin
             # standard case5 network
-            case = PowerModels.parse_file("./networks/case5_sys2.m")
+            case = PowerModels.parse_file("./networks/case5_risk_sys2.m")
             result = PowerModelsWildfire.run_ops(case, PowerModels.DCPPowerModel, mip_optimizer);
             @test result["termination_status"] == OPTIMAL
 
@@ -57,7 +57,7 @@ mip_optimizer = JuMP.optimizer_with_attributes(Cbc.Optimizer, "logLevel"=>0)
 
         @testset "test case14 consistency" begin
             # case14
-            case = PowerModels.parse_file("./networks/case14.m")
+            case = PowerModels.parse_file("./networks/case14_risk.m")
             result = PowerModelsWildfire.run_ops(case, PowerModels.DCPPowerModel, mip_optimizer);
             @test result["termination_status"] == OPTIMAL
 
@@ -91,7 +91,7 @@ mip_optimizer = JuMP.optimizer_with_attributes(Cbc.Optimizer, "logLevel"=>0)
 
     @testset "Heuristics" begin
         @testset "Voltage Heuristic" begin
-            case = PowerModels.parse_file("./networks/case5_sys2.m")
+            case = PowerModels.parse_file("./networks/case5_risk_sys2.m")
             result = PowerModelsWildfire.run_voltage_shutoff_heuristic(case, PowerModels.DCPPowerModel, mip_optimizer, risk_threshold=2.0);
             # @test result["termination_status"] == OPTIMAL  :: result is data dict, not a solution dict
             PowerModels.update_data!(case,result)
@@ -107,7 +107,7 @@ mip_optimizer = JuMP.optimizer_with_attributes(Cbc.Optimizer, "logLevel"=>0)
             @test isapprox(case["branch"]["6"]["br_status"], 0, atol=1e-4)
         end
         @testset "Area Heuristic" begin
-            case = PowerModels.parse_file("./networks/case14.m")
+            case = PowerModels.parse_file("./networks/case14_risk.m")
             result = PowerModelsWildfire.run_area_shutoff_heuristic(case, PowerModels.DCPPowerModel, mip_optimizer, risk_threshold=20.0);
             # @test result["termination_status"] == OPTIMAL :: result is data dict, not a solution dict
             PowerModels.update_data!(case,result)

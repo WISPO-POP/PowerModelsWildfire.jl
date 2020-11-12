@@ -24,7 +24,8 @@ Below is a basic example of how to run the OPS problem.
 using PowerModels, PowerModelsWildfire
 using Cbc
 
-case = parse_file(file)
+PMW_path = joinpath(dirname(pathof(PowerModelsWildfire)), "..")
+case = parse_file("$(PMW_path)/test/networks/case14_risk.m")
 case["risk_weight"] = 0.15 # weight <0.5 prefers load
 
 solution = PowerModelsWildfire.run_ops(case, DCPPowerModel, Cbc.Optimizer);
