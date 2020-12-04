@@ -1,5 +1,8 @@
 # PowerModelsWildfire.jl
 
+[![Build Status](https://travis-ci.com/WISPO-POP/PowerPlots.jl.svg?branch=master)](https://travis-ci.com/WISPO-POP/PowerModelsWildfire.jl)
+[![Codecov](https://codecov.io/gh/WISPO-POP/PowerPlots.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/WISPO-POP/PowerModelsWildfire.jl)
+
 This package provides functions to identify an optimal de-energization strategy for a power system operated in a wildfire prone area.  We refer to this optimization problem as the optimal power shutoff (OPS) problem, which is a mixed-integer linear optimization problem. More information about the modeling and mathematical formulation of this problem, as well as the input data, can be found in this [publication](https://arxiv.org/abs/2004.07156).
 
 The package is currently unregistered.  You can add the package using the command:
