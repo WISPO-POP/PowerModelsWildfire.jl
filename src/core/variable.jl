@@ -1,6 +1,6 @@
 
 "variable: `0 <= active_bus[l] <= 1` for `l` in `bus`es"
-function variable_bus_active_indicator(pm::_PM.AbstractPowerModel; nw::Int=pm.cnw, relax = false,  report::Bool=true)
+function variable_bus_active_indicator(pm::_PM.AbstractPowerModel; nw::Int=nw_id_default, relax = false,  report::Bool=true)
     if relax == false
         z_bus = _PM.var(pm, nw)[:z_bus] = JuMP.@variable(pm.model,
             [l in _PM.ids(pm, nw, :bus)],
@@ -18,5 +18,5 @@ function variable_bus_active_indicator(pm::_PM.AbstractPowerModel; nw::Int=pm.cn
         )
     end
 
-    report && _IM.sol_component_value(pm, nw, :bus, :status, _PM.ids(pm, nw, :bus), z_bus)
+    report && _IM.sol_component_value(pm, _PM.pm_it_sym, nw, :bus, :status, _PM.ids(pm, nw, :bus), z_bus)
 end
