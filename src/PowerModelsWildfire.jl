@@ -1,6 +1,7 @@
 module PowerModelsWildfire
 
 import InfrastructureModels
+import InfrastructureModels: nw_id_default
 import PowerModels
 import PowerModelsRestoration
 import JuMP

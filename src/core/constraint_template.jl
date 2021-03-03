@@ -1,11 +1,11 @@
 ""
-function constraint_model_voltage_active(pm::_PM.AbstractPowerModel; nw::Int=pm.cnw, cnd::Int=pm.ccnd)
+function constraint_model_voltage_active(pm::_PM.AbstractPowerModel; nw::Int=nw_id_default, cnd::Int=pm.ccnd)
     constraint_model_voltage_active(pm, nw, cnd)
 end
 
 
 ""
-function constraint_generation_active(pm::_PM.AbstractPowerModel, i::Int; nw::Int=pm.cnw)
+function constraint_generation_active(pm::_PM.AbstractPowerModel, i::Int; nw::Int=nw_id_default)
     gen = _PM.ref(pm, nw, :gen, i)
 
     _PM.constraint_gen_power_on_off(pm, nw, i, gen["pmin"], gen["pmax"], gen["qmin"], gen["qmax"])
@@ -15,21 +15,21 @@ end
 
 
 ""
-function constraint_load_active(pm::_PM.AbstractPowerModel, i::Int; nw::Int=pm.cnw)
+function constraint_load_active(pm::_PM.AbstractPowerModel, i::Int; nw::Int=nw_id_default)
     load = _PM.ref(pm, nw, :load, i)
     _PMR.constraint_load_bus_connection(pm, nw, i, load["load_bus"])
 end
 
 
 ""
-function constraint_shunt_active(pm::_PM.AbstractPowerModel, i::Int; nw::Int=pm.cnw)
+function constraint_shunt_active(pm::_PM.AbstractPowerModel, i::Int; nw::Int=nw_id_default)
     shunt = _PM.ref(pm, nw, :shunt, i)
     _PMR.constraint_shunt_bus_connection(pm, nw, i, shunt["shunt_bus"])
 end
 
 
 ""
-function constraint_branch_active(pm::_PM.AbstractPowerModel, i::Int; nw::Int=pm.cnw)
+function constraint_branch_active(pm::_PM.AbstractPowerModel, i::Int; nw::Int=nw_id_default)
     branch = _PM.ref(pm, nw, :branch, i)
 
     bus_fr = haskey(_PM.ref(pm, nw, :bus), branch["f_bus"])

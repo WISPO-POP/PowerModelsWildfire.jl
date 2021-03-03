@@ -71,11 +71,11 @@ function build_ops(pm::_PM.AbstractPowerModel)
     # Add Objective
     # ------------------------------------
     # Maximize power delivery while minimizing wildfire risk
-    z_demand = _PM.var(pm, pm.cnw, :z_demand)
-    # z_storage = _PM.var(pm, pm.cnw, :z_storage)
-    z_gen = _PM.var(pm, pm.cnw, :z_gen)
-    z_branch = _PM.var(pm, pm.cnw, :z_branch)
-    z_bus = _PM.var(pm, pm.cnw, :z_bus)
+    z_demand = _PM.var(pm, nw_id_default, :z_demand)
+    # z_storage = _PM.var(pm, nw_id_default, :z_storage)
+    z_gen = _PM.var(pm, nw_id_default, :z_gen)
+    z_branch = _PM.var(pm, nw_id_default, :z_branch)
+    z_bus = _PM.var(pm, nw_id_default, :z_bus)
 
     if haskey(_PM.ref(pm), :risk_weight)
         alpha = _PM.ref(pm, :risk_weight)

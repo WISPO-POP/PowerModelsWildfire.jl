@@ -7,5 +7,5 @@ function variable_voltage_active(pm::_PM.AbstractDCPModel; kwargs...)
 end
 
 "no vm values to turn off"
-function constraint_bus_active(pm::_PM.AbstractDCPModel, i::Int; nw::Int=pm.cnw, kwargs...)
+function constraint_bus_active(pm::_PM.AbstractDCPModel, i::Int; nw::Int=nw_id_default, kwargs...)
 end
