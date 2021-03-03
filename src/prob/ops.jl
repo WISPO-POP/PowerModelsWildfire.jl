@@ -111,5 +111,3 @@ function build_ops(pm::_PM.AbstractPowerModel)
     )
 
 end
-
-
