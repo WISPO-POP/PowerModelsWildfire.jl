@@ -15,6 +15,7 @@ const _IM = InfrastructureModels
 
 include("core/variable.jl")
 include("core/constraint_template.jl")
+include("core/constraint.jl")
 include("core/data.jl")
 
 include("form/dcp.jl")
