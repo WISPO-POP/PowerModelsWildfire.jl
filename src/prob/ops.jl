@@ -1,7 +1,7 @@
 
 ""
 function run_ops(file, model_constructor, optimizer; kwargs...)
-    return _PM.run_model(file, model_constructor, optimizer, build_ops;
+    return _PM.solve_model(file, model_constructor, optimizer, build_ops;
         ref_extensions=[_PM.ref_add_on_off_va_bounds!], kwargs...)
 end
 
@@ -114,7 +114,7 @@ end
 
 ""
 function run_mops(file, model_constructor, optimizer, kwargs...)
-    return _PM.run_model(file, model_constructor, optimizer, build_mn_ops;
+    return _PM.solve_model(file, model_constructor, optimizer, build_mn_ops;
         multinetwork=true, ref_extensions=[_PM.ref_add_on_off_va_bounds!], kwargs...)
 end
 

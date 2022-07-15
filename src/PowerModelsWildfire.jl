@@ -5,10 +5,8 @@ import InfrastructureModels: nw_id_default
 import PowerModels
 import PowerModelsRestoration
 import JuMP
-import MathOptInterface
 import Memento
 
-const _MOI = MathOptInterface
 const _PM = PowerModels
 const _PMR = PowerModelsRestoration
 const _IM = InfrastructureModels
