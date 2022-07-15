@@ -147,21 +147,22 @@ mip_optimizer = JuMP.optimizer_with_attributes(Cbc.Optimizer, "logLevel"=>0)
             case_mn = PowerModels.replicate(case, 3)
             result = PowerModelsWildfire.run_mops(case_mn, PowerModels.DCPPowerModel, mip_optimizer);
             @test result["termination_status"] == OPTIMAL
-            @test isapprox(result["objective"],-0.06; atol=1e-4)
+            @test isapprox(result["objective"],0.0; atol=1e-4)
 
             PowerModels.update_data!(case_mn,result["solution"])
-            @test isapprox(calc_total_risk(case_mn), 120.0, atol=1e-4)
-            @test isapprox(calc_load(case_mn),23.6552, atol=1e-4)
 
-            # check results of network 1
-            @test isapprox(case["branch"]["1"]["br_status"], 1, atol=1e-4)
-            @test isapprox(case["branch"]["2"]["br_status"], 1, atol=1e-4)
-            @test isapprox(case["branch"]["3"]["br_status"], 1, atol=1e-4)
-            @test isapprox(case["branch"]["4"]["br_status"], 1, atol=1e-4)
-            @test isapprox(case["branch"]["5"]["br_status"], 1, atol=1e-4)
-            @test isapprox(case["branch"]["6"]["br_status"], 1, atol=1e-4)
+            # finds a solution that serves all load regardless of risk
+            @test isapprox(calc_total_risk(case_mn), 150.0, atol=1e-4)
+            @test isapprox(calc_load(case_mn),30.0, atol=1e-4)
 
-            # risk is same in each period, each period component status should be identical
+            # each component is active in network 1
+            @test isapprox(case_mn["nw"]["1"]["branch"]["1"]["br_status"], 1.0; atol=1e-4)
+            @test isapprox(case_mn["nw"]["1"]["branch"]["2"]["br_status"], 1.0; atol=1e-4)
+            @test isapprox(case_mn["nw"]["1"]["branch"]["3"]["br_status"], 1.0; atol=1e-4)
+            @test isapprox(case_mn["nw"]["1"]["branch"]["4"]["br_status"], 1.0; atol=1e-4)
+            @test isapprox(case_mn["nw"]["1"]["branch"]["5"]["br_status"], 1.0; atol=1e-4)
+
+            # Each network finds same solution
             for nwid in ["2","3"]
                 for (br_id,branch) in case_mn["nw"][nwid]["branch"]
                     @test branch["br_status"]== case_mn["nw"]["1"]["branch"][br_id]["br_status"]
@@ -194,11 +195,11 @@ mip_optimizer = JuMP.optimizer_with_attributes(Cbc.Optimizer, "logLevel"=>0)
 
             result = PowerModelsWildfire.run_mops(case_mn, PowerModels.DCPPowerModel, mip_optimizer);
             @test result["termination_status"] == OPTIMAL
-            @test isapprox(result["objective"],0.2418; atol=1e-4)
+            @test isapprox(result["objective"],0.2833; atol=1e-4)
 
             PowerModels.update_data!(case_mn,result["solution"])
             @test isapprox(calc_total_risk(case_mn), 0, atol=1e-4)
-            @test isapprox(calc_load(case_mn),15.5971, atol=1e-4)
+            @test isapprox(calc_load(case_mn),20.0, atol=1e-4)
 
             # all branches should be active in no risk time periods
             for nwid in ["1","3"]
@@ -222,7 +223,7 @@ mip_optimizer = JuMP.optimizer_with_attributes(Cbc.Optimizer, "logLevel"=>0)
             case = PowerModels.parse_file("./networks/case5_risk_mops.m")
             case["risk_weight"]= 0.5
             case["disable_cost"] = 10.0
-            case["restoration_budget"]=50.0
+            case["restoration_budget"]=40.0
             case["restoration_cost"] = 0.0
             case_mn = PowerModels.replicate(case, 3)
 
@@ -242,11 +243,11 @@ mip_optimizer = JuMP.optimizer_with_attributes(Cbc.Optimizer, "logLevel"=>0)
             result = PowerModelsWildfire.run_mops(case_mn, PowerModels.DCPPowerModel, mip_optimizer);
             @test result["termination_status"] == OPTIMAL
 
-            @test isapprox(result["objective"],0.2342; atol=1e-4)
+            @test isapprox(result["objective"],0.26; atol=1e-4)
 
             PowerModels.update_data!(case_mn,result["solution"])
-            @test isapprox(calc_total_risk(case_mn), 0, atol=1e-4)
-            @test isapprox(calc_load(case_mn),15.8786, atol=1e-4)
+            @test isapprox(calc_total_risk(case_mn), 100.0, atol=1e-4)
+            @test isapprox(calc_load(case_mn),24.0, atol=1e-4)
 
             # all branches should be active in no risk time periods
             for nwid in ["1"]
@@ -255,19 +256,16 @@ mip_optimizer = JuMP.optimizer_with_attributes(Cbc.Optimizer, "logLevel"=>0)
                 end
             end
 
-            # all branches should be off in high risk period
-            for nwid in ["2"]
+            # one branch kept active in high risk period
+            # because of restoration budget limitations for final period
+            @test isapprox(sum(branch["br_status"] for (br_id,branch) in case_mn["nw"]["2"]["branch"]), 1.0; atol=1e-4)
+
+            # all branches restored in final period
+            for nwid in ["3"]
                 for (br_id,branch) in case_mn["nw"][nwid]["branch"]
-                    @test isapprox(branch["br_status"], 0.0; atol=1e-4)
+                    @test isapprox(branch["br_status"], 1.0; atol=1e-4)
                 end
             end
-
-            @test isapprox(case_mn["nw"]["3"]["branch"]["1"]["br_status"], 1.0; atol=1e-4)
-            @test isapprox(case_mn["nw"]["3"]["branch"]["2"]["br_status"], 1.0; atol=1e-4)
-            @test isapprox(case_mn["nw"]["3"]["branch"]["3"]["br_status"], 0.0; atol=1e-4)
-            @test isapprox(case_mn["nw"]["3"]["branch"]["4"]["br_status"], 1.0; atol=1e-4)
-            @test isapprox(case_mn["nw"]["3"]["branch"]["5"]["br_status"], 1.0; atol=1e-4)
-            @test isapprox(case_mn["nw"]["3"]["branch"]["6"]["br_status"], 1.0; atol=1e-4)
         end
     end
 end
