@@ -26,6 +26,19 @@ function calc_load_risk(data)
 end
 
 function calc_risk(data, comp_type)
+    if get(data,"multinetwork",false)==true
+        risk = 0.0
+        for (nwid,nw) in data["nw"]
+            risk += _calc_risk(nw,comp_type)
+        end
+    else
+        risk = _calc_risk(data, comp_type)
+    end
+    return risk
+end
+
+
+function _calc_risk(data, comp_type)
     risk = 0.0
     comp_status = _PM.pm_component_status[comp_type]
     for (comp_id, comp) in get(data,comp_type, Dict())
@@ -41,6 +54,18 @@ function calc_risk(data, comp_type)
 end
 
 function calc_load(data)
+    if get(data,"multinetwork",false)==true
+        load=0.0
+        for (nwid,nw) in data["nw"]
+            load += _calc_load(nw)
+        end
+    else
+        load = _calc_load(data)
+    end
+    return load
+end
+
+function _calc_load(data)
     return sum(load["pd"]*load["status"] for (load_id, load) in data["load"])
 end
 

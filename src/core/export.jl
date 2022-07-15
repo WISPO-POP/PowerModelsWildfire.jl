@@ -3,7 +3,7 @@
 # symbols in your environment, then use `import PowerModelsWildfire` instead of
 # `using PowerModelsWildfire`.
 
-# Do not add PowerModelsRestoration-defined symbols to this exclude list. Instead, rename
+# Do not add PowerModelsWildfire-defined symbols to this exclude list. Instead, rename
 # them with an underscore.
 
 const _EXCLUDE_SYMBOLS = [Symbol(@__MODULE__), :eval, :include]
@@ -24,19 +24,19 @@ end
 # the follow items are also exported for user-friendlyness when calling
 # `using PowerModelsWildfire`
 
-# so that users do not need to import JuMP to use a solver with PowerModels
+# so that users do not need to import JuMP to use a solver with PowerModelsWildfire
 import JuMP: with_optimizer
 export with_optimizer
 
-import MathOptInterface: TerminationStatusCode
+import JuMP: TerminationStatusCode
 export TerminationStatusCode
 
-import MathOptInterface: ResultStatusCode
+import JuMP: ResultStatusCode
 export ResultStatusCode
 
 for status_code_enum in [TerminationStatusCode, ResultStatusCode]
     for status_code in instances(status_code_enum)
-        @eval import MathOptInterface: $(Symbol(status_code))
+        @eval import JuMP: $(Symbol(status_code))
         @eval export $(Symbol(status_code))
     end
 end
