@@ -87,6 +87,17 @@ mip_optimizer = JuMP.optimizer_with_attributes(Cbc.Optimizer, "logLevel"=>0)
             @test isapprox(case["branch"]["19"]["br_status"], 0, atol=1e-4)
             @test isapprox(case["branch"]["20"]["br_status"], 0, atol=1e-4)
         end
+        @testset "load weights"  begin
+            case = PowerModels.parse_file("./networks/case14_risk.m")
+            result1 = run_ops(case,PowerModels.DCPPowerModel,mip_optimizer)
+
+            for (id,load) in case["load"]
+                load["weight"]=rand()
+            end
+            result2 = run_ops(case,PowerModels.DCPPowerModel,mip_optimizer)
+
+            @test result1["objective"] != result2["objective"]
+        end
     end
 
     @testset "Heuristics" begin
@@ -266,6 +277,21 @@ mip_optimizer = JuMP.optimizer_with_attributes(Cbc.Optimizer, "logLevel"=>0)
                     @test isapprox(branch["br_status"], 1.0; atol=1e-4)
                 end
             end
+        end
+        @testset "load weights"  begin
+            case = PowerModels.parse_file("./networks/case5_risk_mops.m")
+            case_mn = PowerModels.replicate(case, 3)
+
+            result1 = run_mops(case_mn,PowerModels.DCPPowerModel,mip_optimizer)
+
+            for (nwid,nw) in case_mn["nw"]
+                for (id,load) in nw["load"]
+                    load["weight"]=rand()
+                end
+            end
+            result2 = run_mops(case_mn,PowerModels.DCPPowerModel,mip_optimizer)
+
+            @test result1["objective"] != result2["objective"]
         end
     end
 end
