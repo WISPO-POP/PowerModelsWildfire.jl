@@ -5,16 +5,15 @@ import InfrastructureModels: nw_id_default
 import PowerModels
 import PowerModelsRestoration
 import JuMP
-import MathOptInterface
 import Memento
 
-const _MOI = MathOptInterface
 const _PM = PowerModels
 const _PMR = PowerModelsRestoration
 const _IM = InfrastructureModels
 
 include("core/variable.jl")
 include("core/constraint_template.jl")
+include("core/constraint.jl")
 include("core/data.jl")
 
 include("form/dcp.jl")
