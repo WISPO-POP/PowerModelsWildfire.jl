@@ -85,7 +85,7 @@ function constraint_restoration_budget(pm::_PM.AbstractPowerModel, n::Int, branc
 
     JuMP.@constraint(pm.model,
         sum(branch_restoration[id]*cost for (id,cost) in branch_restoration_cost) +
-        sum(gen_restoration[id]*cost for (id,cost) in bus_restoration_cost) +
-        sum(bus_restoration[id]*cost for (id,cost) in gen_restoration_cost) <= restoration_budget
+        sum(bus_restoration[id]*cost for (id,cost) in bus_restoration_cost) +
+        sum(gen_restoration[id]*cost for (id,cost) in gen_restoration_cost) <= restoration_budget
     )
 end
