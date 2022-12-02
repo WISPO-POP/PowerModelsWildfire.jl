@@ -125,7 +125,10 @@ function build_mn_ops(pm::_PM.AbstractPowerModel)
     for (n, network) in _PM.nws(pm)
         variable_bus_active_indicator(pm, nw=n)
         variable_branch_restoration_indicator(pm, nw=n)
+        variable_gen_restoration_indicator(pm, nw=n)
+        variable_bus_restoration_indicator(pm, nw=n)
         variable_load_restoration_indicator(pm, nw=n)
+
         _PMR.variable_bus_voltage_on_off(pm, nw=n)
 
         _PM.variable_gen_indicator(pm, nw=n)
@@ -191,12 +194,24 @@ function build_mn_ops(pm::_PM.AbstractPowerModel)
     network_ids = sort(collect(_PM.nw_ids(pm)))
     n_1 = network_ids[1]
     for i in _PM.ids(pm, :branch, nw=n_1)
-        constraint_restoration_indicator_initial(pm, n_1, i)
+        constraint_branch_restoration_indicator_initial(pm, n_1, i)
+    end
+    for i in _PM.ids(pm, :gen, nw=n_1)
+        constraint_gen_restoration_indicator_initial(pm, n_1, i)
+    end
+    for i in _PM.ids(pm, :bus, nw=n_1)
+        constraint_bus_restoration_indicator_initial(pm, n_1, i)
     end
 
     for n_2 in network_ids[2:end]
         for i in _PM.ids(pm, :branch, nw=n_2)
-            constraint_restoration_indicator(pm, n_1, n_2, i)
+            constraint_branch_restoration_indicator(pm, n_1, n_2, i)
+        end
+        for i in _PM.ids(pm, :gen, nw=n_2)
+            constraint_gen_restoration_indicator(pm, n_1, n_2, i)
+        end
+        for i in _PM.ids(pm, :bus, nw=n_2)
+            constraint_bus_restoration_indicator(pm, n_1, n_2, i)
         end
         n_1 = n_2
     end
@@ -247,6 +262,8 @@ function build_mn_ops(pm::_PM.AbstractPowerModel)
 
     z_demand = Dict(nwid => _PM.var(pm, nwid, :z_demand) for nwid in _PM.nw_ids(pm))
     z_branch = Dict(nwid => _PM.var(pm, nwid, :z_branch) for nwid in _PM.nw_ids(pm))
+    z_bus = Dict(nwid => _PM.var(pm, nwid, :z_bus) for nwid in _PM.nw_ids(pm))
+    z_gen = Dict(nwid => _PM.var(pm, nwid, :z_gen) for nwid in _PM.nw_ids(pm))
 
     JuMP.@objective(pm.model, Max,
         sum(
@@ -254,8 +271,12 @@ function build_mn_ops(pm::_PM.AbstractPowerModel)
                 sum(load["pd"]*load_weight[nwid][i]*z_demand[nwid][i]/total_load for (i,load) in _PM.ref(pm, nwid, :load))
             )
             -alpha*(
-                sum(z_branch[nwid][i]*branch["power_risk"]/total_risk for (i,branch) in _PM.ref(pm, nwid, :branch))
-                +sum((1-z_branch[nwid][i])*disable_cost/total_risk for (i,branch) in _PM.ref(pm, nwid, :branch))
+                sum(z_branch[nwid][i]*branch["power_risk"]/total_risk for (i,branch) in _PM.ref(pm, nwid, :branch))+
+                sum((1-z_branch[nwid][i])*disable_cost/total_risk for (i,branch) in _PM.ref(pm, nwid, :branch))+
+                sum(z_bus[nwid][i]*bus["power_risk"]/total_risk for (i,bus) in _PM.ref(pm, nwid, :bus))+
+                sum((1-z_bus[nwid][i])*disable_cost/total_risk for (i,bus) in _PM.ref(pm, nwid, :bus))+
+                sum(z_gen[nwid][i]*gen["power_risk"]/total_risk for (i,gen) in _PM.ref(pm, nwid, :gen))+
+                sum((1-z_gen[nwid][i])*disable_cost/total_risk for (i,gen) in _PM.ref(pm, nwid, :gen))
             )
         for nwid in _PM.nw_ids(pm))
     )

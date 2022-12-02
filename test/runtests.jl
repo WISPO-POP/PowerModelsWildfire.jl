@@ -235,7 +235,6 @@ mip_optimizer = JuMP.optimizer_with_attributes(Cbc.Optimizer, "logLevel"=>0)
             case["risk_weight"]= 0.5
             case["disable_cost"] = 10.0
             case["restoration_budget"]=40.0
-            case["restoration_cost"] = 0.0
             case_mn = PowerModels.replicate(case, 3)
 
             for (id,branch) in case_mn["nw"]["1"]["branch"]
@@ -277,6 +276,72 @@ mip_optimizer = JuMP.optimizer_with_attributes(Cbc.Optimizer, "logLevel"=>0)
                     @test isapprox(branch["br_status"], 1.0; atol=1e-4)
                 end
             end
+
+
+            ## Check gen/bus budget limits as well
+            case = PowerModels.parse_file("./networks/case5_risk_mops.m")
+            case["risk_weight"]= 0.5
+            case["disable_cost"] = 10.0
+            case["restoration_budget"]=40.0
+            case_mn = PowerModels.replicate(case, 3)
+
+            for comp_type in ["gen","bus"]
+                for (id,comp) in case_mn["nw"]["1"][comp_type]
+                    comp["power_risk"]=5.0
+                    comp["restoration_cost"]=10.0
+                end
+                for (id,comp) in case_mn["nw"]["2"][comp_type]
+                    comp["power_risk"]=100.0
+                    comp["restoration_cost"]=10.0
+                end
+                for (id,comp) in case_mn["nw"]["3"][comp_type]
+                    comp["power_risk"]=5.0
+                    comp["restoration_cost"]=10.0
+                end
+            end
+            for comp_type in ["branch"] #"branch",
+                for (id,comp) in case_mn["nw"]["1"][comp_type]
+                    comp["power_risk"]=5.0
+                    comp["restoration_cost"]=10.0
+                end
+                for (id,comp) in case_mn["nw"]["2"][comp_type]
+                    comp["power_risk"]=5.0
+                    comp["restoration_cost"]=10.0
+                end
+                for (id,comp) in case_mn["nw"]["3"][comp_type]
+                    comp["power_risk"]=5.0
+                    comp["restoration_cost"]=10.0
+                end
+            end
+            result = PowerModelsWildfire.run_mops(case_mn, PowerModels.DCPPowerModel, mip_optimizer);
+            @test result["termination_status"] == OPTIMAL
+
+            @test isapprox(result["objective"],0.0946; atol=1e-4)
+
+            PowerModels.update_data!(case_mn,result["solution"])
+            @test isapprox(calc_total_risk(case_mn), 725.0, atol=1e-4)
+            @test isapprox(calc_load(case_mn),21.0, atol=1e-4)
+
+            # All devices active in period 1
+            @test sum(branch["br_status"] for (id,branch) in case_mn["nw"]["1"]["branch"]) == 5
+            @test sum(gen["gen_status"] for (id,gen) in case_mn["nw"]["1"]["gen"]) == 5
+            @test sum(bus["status"] for (id,bus) in case_mn["nw"]["1"]["bus"]) == 5
+
+            # most devices inactive in period 2
+            @test sum(branch["br_status"] for (id,branch) in case_mn["nw"]["2"]["branch"]) <= 5
+            @test sum(gen["gen_status"] for (id,gen) in case_mn["nw"]["2"]["gen"]) <= 5
+            @test sum(bus["status"] for (id,bus) in case_mn["nw"]["2"]["bus"]) <= 5
+            @test sum(branch["br_status"] for (id,branch) in case_mn["nw"]["2"]["branch"]) +
+                    sum(gen["gen_status"] for (id,gen) in case_mn["nw"]["2"]["gen"]) +
+                    sum(bus["status"] for (id,bus) in case_mn["nw"]["2"]["bus"]) == 4
+
+
+            # 4 devices repaired in period 3
+            @test sum(branch["br_status"] for (id,branch) in case_mn["nw"]["3"]["branch"]) +
+                    sum(gen["gen_status"] for (id,gen) in case_mn["nw"]["3"]["gen"]) +
+                    sum(bus["status"] for (id,bus) in case_mn["nw"]["3"]["bus"]) == 8
+
+
         end
         @testset "load weights"  begin
             case = PowerModels.parse_file("./networks/case5_risk_mops.m")

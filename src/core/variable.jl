@@ -45,6 +45,52 @@ function variable_branch_restoration_indicator(pm::_PM.AbstractPowerModel; nw::I
     report && _IM.sol_component_value(pm, _PM.pm_it_sym, nw, :branch, :branch_restoration, _PM.ids(pm, nw, :branch), branch_restoration)
 end
 
+"variable: `0 <= bus_restoration[l] <= 1` for `l` in `branch`es"
+function variable_bus_restoration_indicator(pm::_PM.AbstractPowerModel; nw::Int=nw_id_default, relax::Bool=false, report::Bool=true)
+    if relax == false
+        bus_restoration = _PM.var(pm, nw)[:bus_restoration] = JuMP.@variable(pm.model,
+            [l in _PM.ids(pm, nw, :bus)],
+            base_name="$(nw)_bus_restoration",
+            binary = true,
+            start = _PM.comp_start_value(_PM.ref(pm, nw, :bus, l), "bus_restoration_state")
+        )
+    else
+        bus_restoration = _PM.var(pm, nw)[:bus_restoration] = JuMP.@variable(pm.model,
+            [l in _PM.ids(pm, nw, :bus)],
+            base_name="$(nw)_bus_restoration",
+            lower_bound = 0,
+            upper_bound = 1,
+            start = _PM.comp_start_value(_PM.ref(pm, nw, :bus, l), "bus_restoration_state")
+        )
+    end
+    # _PM.var(pm, nw)[:bus_restoration] = z_bus_resto
+
+    report && _IM.sol_component_value(pm, _PM.pm_it_sym, nw, :bus, :bus_restoration, _PM.ids(pm, nw, :bus), bus_restoration)
+end
+
+"variable: `0 <= gen_restoration[l] <= 1` for `l` in `gen`es"
+function variable_gen_restoration_indicator(pm::_PM.AbstractPowerModel; nw::Int=nw_id_default, relax::Bool=false, report::Bool=true)
+    if relax == false
+        gen_restoration = _PM.var(pm, nw)[:gen_restoration] = JuMP.@variable(pm.model,
+            [l in _PM.ids(pm, nw, :gen)],
+            base_name="$(nw)_gen_restoration",
+            binary = true,
+            start = _PM.comp_start_value(_PM.ref(pm, nw, :gen, l), "gen_restoration_state")
+        )
+    else
+        gen_restoration = _PM.var(pm, nw)[:gen_restoration] = JuMP.@variable(pm.model,
+            [l in _PM.ids(pm, nw, :gen)],
+            base_name="$(nw)_gen_restoration",
+            lower_bound = 0,
+            upper_bound = 1,
+            start = _PM.comp_start_value(_PM.ref(pm, nw, :gen, l), "gen_restoration_state")
+        )
+    end
+    # _PM.var(pm, nw)[:gen_restoration] = z_gen_resto
+
+    report && _IM.sol_component_value(pm, _PM.pm_it_sym, nw, :gen, :gen_restoration, _PM.ids(pm, nw, :gen), gen_restoration)
+end
+
 "variable: `0 <= load_restoration[l] <= 1` for `l` in `load`es"
 function variable_load_restoration_indicator(pm::_PM.AbstractPowerModel; nw::Int=nw_id_default, relax::Bool=false, report::Bool=true)
     if relax == false
