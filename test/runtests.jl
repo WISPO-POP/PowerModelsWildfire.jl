@@ -279,7 +279,7 @@ mip_optimizer = JuMP.optimizer_with_attributes(Cbc.Optimizer, "logLevel"=>0)
 
 
             ## Check gen/bus budget limits as well
-            case = PowerModels.parse_file("./test/networks/case5_risk_mops.m")
+            case = PowerModels.parse_file("./networks/case5_risk_mops.m")
             case["risk_weight"]= 0.5
             case["disable_cost"] = 10.0
             case["restoration_budget"]=40.0
