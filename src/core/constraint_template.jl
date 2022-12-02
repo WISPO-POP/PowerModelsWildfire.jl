@@ -54,8 +54,22 @@ function constraint_restoration_budget(pm::_PM.AbstractPowerModel; nw::Int=nw_id
             branch["restoration_cost"]=10.0
         end
     end
+    for (id,bus) in _PM.ref(pm, nw, :bus)
+        if !haskey(bus, "restoration_cost")
+            Memento.warn(_PM._LOGGER, "bus data should specify `restoration_cost``, using 10.0 as a default")
+            bus["restoration_cost"]=10.0
+        end
+    end
+    for (id,gen) in _PM.ref(pm, nw, :gen)
+        if !haskey(gen, "restoration_cost")
+            Memento.warn(_PM._LOGGER, "gen data should specify `restoration_cost``, using 10.0 as a default")
+            gen["restoration_cost"]=10.0
+        end
+    end
 
     branch_restoration_cost = Dict(branch["index"] => branch["restoration_cost"] for (id,branch) in _PM.ref(pm, nw, :branch))
-    constraint_restoration_budget(pm, nw, branch_restoration_cost, restoration_budget)
+    bus_restoration_cost = Dict(bus["index"] => bus["restoration_cost"] for (id,bus) in _PM.ref(pm, nw, :bus))
+    gen_restoration_cost = Dict(gen["index"] => gen["restoration_cost"] for (id,gen) in _PM.ref(pm, nw, :gen))
+    constraint_restoration_budget(pm, nw, branch_restoration_cost, bus_restoration_cost, gen_restoration_cost, restoration_budget)
 end
 
