@@ -16,7 +16,10 @@ include("core/constraint_template.jl")
 include("core/constraint.jl")
 include("core/data.jl")
 
+include("form/acp.jl")
 include("form/dcp.jl")
+include("form/wr.jl")
+include("form/wrm.jl")
 
 include("prob/ops.jl")
 include("util/risk_heuristic.jl")

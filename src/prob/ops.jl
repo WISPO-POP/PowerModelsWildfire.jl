@@ -9,7 +9,7 @@ end
 function build_ops(pm::_PM.AbstractPowerModel)
 
     variable_bus_active_indicator(pm)
-    _PMR.variable_bus_voltage_on_off(pm)
+    variable_bus_voltage_on_off(pm)
 
     _PM.variable_gen_indicator(pm)
     _PM.variable_gen_power_on_off(pm)
@@ -25,18 +25,18 @@ function build_ops(pm::_PM.AbstractPowerModel)
     _PM.variable_load_power_factor(pm, relax=true)
     _PM.variable_shunt_admittance_factor(pm, relax=true)
 
-    _PMR.constraint_model_voltage_damage(pm)
+    _PM.constraint_model_voltage_on_off(pm)
+
     for i in _PM.ids(pm, :ref_buses)
         _PM.constraint_theta_ref(pm, i)
     end
 
     for i in _PM.ids(pm, :gen)
         constraint_generation_active(pm, i)
-        _PM.constraint_gen_power_on_off(pm, i)
     end
 
     for i in _PM.ids(pm, :bus)
-        constraint_bus_active(pm, i)
+        constraint_bus_voltage_on_off(pm, i)
         _PMR.constraint_power_balance_shed(pm, i)
     end
 
@@ -123,13 +123,14 @@ end
 
 function build_mn_ops(pm::_PM.AbstractPowerModel)
     for (n, network) in _PM.nws(pm)
-        variable_bus_active_indicator(pm, nw=n)
+
         variable_branch_restoration_indicator(pm, nw=n)
         variable_gen_restoration_indicator(pm, nw=n)
         variable_bus_restoration_indicator(pm, nw=n)
         variable_load_restoration_indicator(pm, nw=n)
 
-        _PMR.variable_bus_voltage_on_off(pm, nw=n)
+        variable_bus_active_indicator(pm, nw=n)
+        variable_bus_voltage_on_off(pm, nw=n)
 
         _PM.variable_gen_indicator(pm, nw=n)
         _PM.variable_gen_power_on_off(pm, nw=n)
@@ -145,18 +146,17 @@ function build_mn_ops(pm::_PM.AbstractPowerModel)
         _PM.variable_load_power_factor(pm, nw=n, relax=true)
         _PM.variable_shunt_admittance_factor(pm, nw=n, relax=true)
 
-        _PMR.constraint_model_voltage_damage(pm, nw=n)
+        _PM.constraint_model_voltage_on_off(pm, nw=n)
         for i in _PM.ids(pm, :ref_buses, nw=n)
             _PM.constraint_theta_ref(pm, i, nw=n)
         end
 
         for i in _PM.ids(pm, :gen, nw=n)
             constraint_generation_active(pm, i, nw=n)
-            _PM.constraint_gen_power_on_off(pm, i, nw=n)
         end
 
         for i in _PM.ids(pm, :bus, nw=n)
-            constraint_bus_active(pm, i, nw=n)
+            constraint_bus_voltage_on_off(pm, i)
             _PMR.constraint_power_balance_shed(pm, i, nw=n)
         end
 
