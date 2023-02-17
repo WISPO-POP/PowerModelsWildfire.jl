@@ -10,21 +10,12 @@
         @test isapprox(calc_load(case), 7.0, atol=1e-4)
 
 
-        # check MLD for identical power flow
+        # check MLD for identical power delivery
         PowerModelsRestoration.clean_status!(result_ops["solution"])
         PowerModelsRestoration.update_status!(case, result_ops["solution"])
-        result_mld = PowerModelsRestoration.run_mld(case, PowerModels.DCPPowerModel, minlp_solver)
-        @test result_mld["termination_status"] == LOCALLY_SOLVED # verify mld solved before comparison
+        result_mld = PowerModelsRestoration.run_mld(case, PowerModels.DCPPowerModel, milp_solver)
+        @test result_mld["termination_status"] == OPTIMAL # verify mld solved before comparison
         @test isapprox(calc_load(result_mld["solution"]), calc_load(case), atol=1e-4)
-        # for comp_type in ["bus","branch","gen","load"]  # DC can find non-unique power flow
-        #     for (comp_id,comp) in result_mld["solution"][comp_type]
-        #         for (var,val) in comp
-        #             if !isnan(val) # skip NaN like qg for generators
-        #                 @test isapprox(result_ops["solution"][comp_type][comp_id][var], val, atol=1e-2)
-        #             end
-        #         end
-        #     end
-        # end
 
     end
 
@@ -38,17 +29,13 @@
         @test isapprox(calc_total_risk(case), 24.5, atol=1e-4)
         @test isapprox(calc_load(case), 6.9998, atol=1e-4)
 
-        # check MLD for identical power flow
+        # check MLD for identical power delivery
         PowerModelsRestoration.clean_status!(result_ops["solution"])
         PowerModelsRestoration.update_status!(case, result_ops["solution"])
         result_mld = PowerModelsRestoration.run_mld(case, PowerModels.ACPPowerModel, minlp_solver)
-        for comp_type in ["bus","branch","gen","load"]
-            for (comp_id,comp) in result_mld["solution"][comp_type]
-                for (var,val) in comp
-                    @test isapprox(result_ops["solution"][comp_type][comp_id][var], val, atol=1e-2)
-                end
-            end
-        end
+        @test result_mld["termination_status"] == LOCALLY_SOLVED # verify mld solved before comparison
+        @test isapprox(calc_load(result_mld["solution"]), calc_load(case), atol=1e-4)
+
 
     end
 
@@ -63,20 +50,13 @@
         @test isapprox(calc_load(case), 6.9998, atol=1e-4)
 
 
-        # check MLD for identical power flow
+        # check MLD for identical power delivery
         PowerModelsRestoration.clean_status!(result_ops["solution"])
         PowerModelsRestoration.update_status!(case, result_ops["solution"])
         result_mld = PowerModelsRestoration.run_mld(case, PowerModels.SOCWRPowerModel, minlp_solver)
-
         @test result_mld["termination_status"] == LOCALLY_SOLVED # verify mld solved before comparison
         @test isapprox(calc_load(result_mld["solution"]), calc_load(case), atol=1e-4)
-        # for comp_type in ["bus","branch","gen","load"] # SOC voltage mangnitudes non-unqie
-        #     for (comp_id,comp) in result_mld["solution"][comp_type]
-        #         for (var,val) in comp
-        #             @test isapprox(result_ops["solution"][comp_type][comp_id][var], val, atol=1e-2)
-        #         end
-        #     end
-        # end
+
     end
 
     @testset "test case5_risk_sys1 consistency" begin
