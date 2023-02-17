@@ -89,3 +89,19 @@ function constraint_restoration_budget(pm::_PM.AbstractPowerModel, n::Int, branc
         sum(gen_restoration[id]*cost for (id,cost) in gen_restoration_cost) <= restoration_budget
     )
 end
+
+function constraint_voltage_magnitude_on_off(pm::_PM.AbstractPowerModel, n::Int, i::Int, vmin, vmax)
+    vm = _PM.var(pm, n, :vm, i)
+    z_bus = _PM.var(pm, n, :z_bus, i)
+
+    JuMP.@constraint(pm.model, vm <= vmax*z_bus)
+    JuMP.@constraint(pm.model, vm >= vmin*z_bus)
+end
+
+function constraint_voltage_magnitude_sqr_on_off(pm::_PM.AbstractPowerModel, n::Int, i::Int, vmin, vmax)
+    w = _PM.var(pm, n, :w, i)
+    z_bus = _PM.var(pm, n, :z_bus, i)
+
+    JuMP.@constraint(pm.model, w <= vmax^2*z_bus)
+    JuMP.@constraint(pm.model, w >= vmin^2*z_bus)
+end

@@ -73,3 +73,18 @@ function constraint_restoration_budget(pm::_PM.AbstractPowerModel; nw::Int=nw_id
     constraint_restoration_budget(pm, nw, branch_restoration_cost, bus_restoration_cost, gen_restoration_cost, restoration_budget)
 end
 
+
+constraint_bus_voltage_on_off(pm::_PM.AbstractPowerModel, i::Int; nw::Int=nw_id_default, kwargs...) = constraint_bus_voltage_on_off(pm, nw, i; kwargs...)
+
+
+function constraint_voltage_magnitude_on_off(pm::_PM.AbstractPowerModel, i::Int; nw::Int=nw_id_default)
+    bus = _PM.ref(pm, nw, :bus, i)
+
+    constraint_voltage_magnitude_on_off(pm, nw, i, bus["vmin"], bus["vmax"])
+end
+
+function constraint_voltage_magnitude_sqr_on_off(pm::_PM.AbstractPowerModel, i::Int; nw::Int=nw_id_default)
+    bus = _PM.ref(pm, nw, :bus, i)
+
+    constraint_voltage_magnitude_sqr_on_off(pm, nw, i, bus["vmin"], bus["vmax"])
+end
