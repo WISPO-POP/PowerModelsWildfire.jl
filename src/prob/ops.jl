@@ -45,8 +45,8 @@ function build_ops(pm::_PM.AbstractPowerModel)
         _PM.constraint_storage_state(pm, i)
         _PM.constraint_storage_complementarity_mi(pm, i)
         _PM.constraint_storage_on_off(pm,i)
-        _PM.constraint_storage_loss(pm, i)
-        _PM.constraint_storage_thermal_limit(pm, i)
+        #_PM.constraint_storage_loss(pm, i)
+        #_PM.constraint_storage_thermal_limit(pm, i)
     end
 
     for i in _PM.ids(pm, :branch)
