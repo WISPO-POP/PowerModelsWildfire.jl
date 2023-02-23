@@ -29,6 +29,13 @@ end
 
 
 ""
+function constraint_storage_active(pm::_PM.AbstractPowerModel, i::Int; nw::Int=nw_id_default)
+    storage = _PM.ref(pm, nw, :storage, i)
+    _PMR.constraint_storage_bus_connection(pm, nw, i, storage["storage_bus"])
+end
+
+
+""
 function constraint_branch_active(pm::_PM.AbstractPowerModel, i::Int; nw::Int=nw_id_default)
     branch = _PM.ref(pm, nw, :branch, i)
 
