@@ -40,15 +40,6 @@ function build_ops(pm::_PM.AbstractPowerModel)
         _PMR.constraint_power_balance_shed(pm, i)
     end
 
-    for i in _PM.ids(pm, :storage)
-        constraint_storage_active(pm, i)
-        _PM.constraint_storage_state(pm, i)
-        _PM.constraint_storage_complementarity_mi(pm, i)
-        _PM.constraint_storage_on_off(pm,i)
-        _PM.constraint_storage_loss(pm, i)
-        _PM.constraint_storage_thermal_limit(pm, i)
-    end
-
     for i in _PM.ids(pm, :branch)
         constraint_branch_active(pm, i)
         _PM.constraint_ohms_yt_from_on_off(pm, i)
@@ -65,14 +56,14 @@ function build_ops(pm::_PM.AbstractPowerModel)
     end
 
     for i in _PM.ids(pm, :dcline)
-        _PM.constraint_dcline_power_losses(pm, i) #not active decision variables
+        # no dcline line switching
+        _PM.constraint_dcline_power_losses(pm, i)
     end
 
     # Add Objective
     # ------------------------------------
     # Maximize power delivery while minimizing wildfire risk
     z_demand = _PM.var(pm, nw_id_default, :z_demand)
-    # z_storage = _PM.var(pm, nw_id_default, :z_storage)
     z_gen = _PM.var(pm, nw_id_default, :z_gen)
     z_branch = _PM.var(pm, nw_id_default, :z_branch)
     z_bus = _PM.var(pm, nw_id_default, :z_bus)
@@ -108,7 +99,6 @@ function build_ops(pm::_PM.AbstractPowerModel)
             + sum(z_bus[i]*bus["power_risk"]+bus["base_risk"] for (i,bus) in _PM.ref(pm, :bus))
             + sum(z_branch[i]*branch["power_risk"]+branch["base_risk"] for (i,branch) in _PM.ref(pm, :branch))
             + sum(z_demand[i]*load["power_risk"]+load["base_risk"] for (i,load) in _PM.ref(pm,:load))
-            # + sum(z_storage[i]*storage["power_risk"]+storage["base_risk"] for (i,storage) in _PM.ref(pm, :storage))
         )
     )
 
