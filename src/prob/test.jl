@@ -23,13 +23,8 @@ function _build_normalized_ops(pm::_PM.AbstractPowerModel)
     _PM.variable_gen_indicator(pm)
     _PM.variable_gen_power_on_off(pm)
 
-    _PM.variable_storage_indicator(pm)
-    _PM.variable_storage_power_mi_on_off(pm)
-
     _PM.variable_branch_indicator(pm)
     _PM.variable_branch_power(pm)
-
-    _PM.variable_dcline_power(pm)
 
     _PM.variable_load_power_factor(pm, relax=true)
     _PM.variable_shunt_admittance_factor(pm, relax=true)
@@ -47,15 +42,6 @@ function _build_normalized_ops(pm::_PM.AbstractPowerModel)
     for i in _PM.ids(pm, :bus)
         constraint_bus_voltage_on_off(pm, i)
         _PMR.constraint_power_balance_shed(pm, i)
-    end
-
-    for i in _PM.ids(pm, :storage)
-        constraint_storage_active(pm, i)
-        _PM.constraint_storage_state(pm, i)
-        _PM.constraint_storage_complementarity_mi(pm, i)
-        _PM.constraint_storage_on_off(pm,i)
-        _PM.constraint_storage_loss(pm, i)
-        _PM.constraint_storage_thermal_limit(pm, i)
     end
 
     for i in _PM.ids(pm, :branch)
@@ -81,7 +67,6 @@ function _build_normalized_ops(pm::_PM.AbstractPowerModel)
     # ------------------------------------
     # Maximize power delivery while minimizing wildfire risk
     z_demand = _PM.var(pm, nw_id_default, :z_demand)
-    # z_storage = _PM.var(pm, nw_id_default, :z_storage)
     z_gen = _PM.var(pm, nw_id_default, :z_gen)
     z_branch = _PM.var(pm, nw_id_default, :z_branch)
     z_bus = _PM.var(pm, nw_id_default, :z_bus)
@@ -114,7 +99,7 @@ function _build_normalized_ops(pm::_PM.AbstractPowerModel)
     sum(sum(sum(get(comp,"power_risk",0)
                 for (compid,comp) in  _PM.ref(pm, nwid, comp_type); init=0.0)
             for nwid in  _PM.nw_ids(pm))
-        for comp_type in [:branch,:gen,:bus,:load] #:storage
+        for comp_type in [:branch,:gen,:bus,:load]
     )
 
     JuMP.@objective(pm.model, Max,
@@ -126,7 +111,6 @@ function _build_normalized_ops(pm::_PM.AbstractPowerModel)
             + sum(z_bus[i]*bus["power_risk"]+bus["base_risk"] for (i,bus) in _PM.ref(pm, :bus))
             + sum(z_branch[i]*branch["power_risk"]+branch["base_risk"] for (i,branch) in _PM.ref(pm, :branch))
             + sum(z_demand[i]*load["power_risk"]+load["base_risk"] for (i,load) in _PM.ref(pm,:load))
-            # + sum(z_storage[i]*storage["power_risk"]+storage["base_risk"] for (i,storage) in _PM.ref(pm, :storage))
         )/total_risk
     )
 
