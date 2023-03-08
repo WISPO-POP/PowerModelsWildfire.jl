@@ -22,6 +22,13 @@ end
 
 
 ""
+function constraint_storage_active(pm::_PM.AbstractPowerModel, i::Int; nw::Int=nw_id_default)
+    storage = _PM.ref(pm, nw, :storage, i)
+    _PMR.constraint_storage_bus_connection(pm, nw, i, storage["storage_bus"])
+end
+
+
+""
 function constraint_shunt_active(pm::_PM.AbstractPowerModel, i::Int; nw::Int=nw_id_default)
     shunt = _PM.ref(pm, nw, :shunt, i)
     _PMR.constraint_shunt_bus_connection(pm, nw, i, shunt["shunt_bus"])
@@ -74,17 +81,64 @@ function constraint_restoration_budget(pm::_PM.AbstractPowerModel; nw::Int=nw_id
 end
 
 
+""
 constraint_bus_voltage_on_off(pm::_PM.AbstractPowerModel, i::Int; nw::Int=nw_id_default, kwargs...) = constraint_bus_voltage_on_off(pm, nw, i; kwargs...)
 
 
+""
 function constraint_voltage_magnitude_on_off(pm::_PM.AbstractPowerModel, i::Int; nw::Int=nw_id_default)
     bus = _PM.ref(pm, nw, :bus, i)
 
     constraint_voltage_magnitude_on_off(pm, nw, i, bus["vmin"], bus["vmax"])
 end
 
+
+""
 function constraint_voltage_magnitude_sqr_on_off(pm::_PM.AbstractPowerModel, i::Int; nw::Int=nw_id_default)
     bus = _PM.ref(pm, nw, :bus, i)
 
     constraint_voltage_magnitude_sqr_on_off(pm, nw, i, bus["vmin"], bus["vmax"])
+end
+
+
+"Shutoff gen must stay shutoff"
+function constraint_gen_deenergized(pm::_PM.AbstractPowerModel,  i::Int, nw_1::Int, nw_2::Int)
+    z_gen_1 = _PM.var(pm, nw_1, :z_gen, i)
+    z_gen_2 = _PM.var(pm, nw_2, :z_gen, i)
+
+    JuMP.@constraint(pm.model, z_gen_2 <= z_gen_1)
+end
+
+"Shutoff bus must stay shutoff"
+function constraint_bus_deenergized(pm::_PM.AbstractPowerModel,  i::Int, nw_1::Int, nw_2::Int)
+    z_bus_1 = _PM.var(pm, nw_1, :z_bus, i)
+    z_bus_2 = _PM.var(pm, nw_2, :z_bus, i)
+
+    JuMP.@constraint(pm.model, z_bus_2 <= z_bus_1)
+end
+
+
+"Shutoff storage must stay shutoff"
+function constraint_storage_deenergized(pm::_PM.AbstractPowerModel,  i::Int, nw_1::Int, nw_2::Int)
+    z_storage_1 = _PM.var(pm, nw_1, :z_storage, i)
+    z_storage_2 = _PM.var(pm, nw_2, :z_storage, i)
+
+    JuMP.@constraint(pm.model, z_storage_2 <= z_storage_1)
+end
+
+
+"Shutoff branch must stay shutoff"
+function constraint_branch_deenergized(pm::_PM.AbstractPowerModel,  i::Int, nw_1::Int, nw_2::Int)
+    z_branch_1 = _PM.var(pm, nw_1, :z_branch, i)
+    z_branch_2 = _PM.var(pm, nw_2, :z_branch, i)
+
+    JuMP.@constraint(pm.model, z_branch_2 <= z_branch_1)
+end
+
+"Shutoff load must stay shutoff"
+function constraint_load_deenergized(pm::_PM.AbstractPowerModel,  i::Int, nw_1::Int, nw_2::Int)
+    z_load_1 = _PM.var(pm, nw_1, :z_demand, i)
+    z_load_2 = _PM.var(pm, nw_2, :z_demand, i)
+
+    JuMP.@constraint(pm.model, z_load_2 <= z_load_1)
 end
