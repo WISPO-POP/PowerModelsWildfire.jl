@@ -105,13 +105,13 @@ function build_ops(pm::_PM.AbstractPowerModel)
 end
 
 ""
-function run_mops(file, model_constructor, optimizer, kwargs...)
-    return _PM.solve_model(file, model_constructor, optimizer, build_mn_ops;
+function run_mopsar(file, model_constructor, optimizer; kwargs...)
+    return _PM.solve_model(file, model_constructor, optimizer, build_mopsar;
         multinetwork=true, ref_extensions=[_PM.ref_add_on_off_va_bounds!], kwargs...)
 end
 
 
-function build_mn_ops(pm::_PM.AbstractPowerModel)
+function build_mopsar(pm::_PM.AbstractPowerModel)
     for (n, network) in _PM.nws(pm)
 
         variable_branch_restoration_indicator(pm, nw=n)
@@ -125,13 +125,8 @@ function build_mn_ops(pm::_PM.AbstractPowerModel)
         _PM.variable_gen_indicator(pm, nw=n)
         _PM.variable_gen_power_on_off(pm, nw=n)
 
-        _PM.variable_storage_indicator(pm, nw=n)
-        _PM.variable_storage_power_mi_on_off(pm, nw=n)
-
         _PM.variable_branch_indicator(pm, nw=n)
         _PM.variable_branch_power(pm, nw=n)
-
-        _PM.variable_dcline_power(pm, nw=n)
 
         _PM.variable_load_power_factor(pm, nw=n, relax=true)
         _PM.variable_shunt_admittance_factor(pm, nw=n, relax=true)
@@ -148,15 +143,6 @@ function build_mn_ops(pm::_PM.AbstractPowerModel)
         for i in _PM.ids(pm, :bus, nw=n)
             constraint_bus_voltage_on_off(pm, i)
             _PMR.constraint_power_balance_shed(pm, i, nw=n)
-        end
-
-        for i in _PM.ids(pm, :storage, nw=n)
-            constraint_storage_active(pm, i, nw=n)
-            _PM.constraint_storage_state(pm, i, nw=n)
-            _PM.constraint_storage_complementarity_mi(pm, i, nw=n)
-            _PM.constraint_storage_on_off(pm,i, nw=n)
-            _PM.constraint_storage_loss(pm, i, nw=n)
-            _PM.constraint_storage_thermal_limit(pm, i, nw=n)
         end
 
         for i in _PM.ids(pm, :branch, nw=n)
