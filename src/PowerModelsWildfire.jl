@@ -22,6 +22,7 @@ include("form/wr.jl")
 include("form/wrm.jl")
 
 include("prob/ops.jl")
+include("prob/test.jl")
 include("util/risk_heuristic.jl")
 
 include("core/export.jl")

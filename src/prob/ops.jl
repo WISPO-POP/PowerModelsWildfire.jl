@@ -99,18 +99,9 @@ function build_ops(pm::_PM.AbstractPowerModel)
 
     load_weight = Dict(i => get(load, "weight", 1.0) for (i,load) in _PM.ref(pm, :load))
 
-    # scale based on total load demand and risk
-    total_load = sum(sum(load["pd"] for (load_id,load) in nw[:load]) for (nwid,nw) in  _PM.nws(pm))
-    total_risk =
-    sum(sum(sum(get(comp,"power_risk",0)
-                for (compid,comp) in  _PM.ref(pm, nwid, comp_type); init=0.0)
-            for nwid in  _PM.nw_ids(pm))
-        for comp_type in [:branch,:gen,:bus,:load] #:storage
-    )
-
     JuMP.@objective(pm.model, Max,
         (1-alpha)*(
-                sum(z_demand[i]*load_weight[i]*load["pd"] for (i,load) in _PM.ref(pm,:load))/total_load
+                sum(z_demand[i]*load_weight[i]*load["pd"] for (i,load) in _PM.ref(pm,:load))
         )
         - alpha*(
             sum(z_gen[i]*gen["power_risk"]+gen["base_risk"] for (i,gen) in _PM.ref(pm, :gen))
@@ -118,7 +109,7 @@ function build_ops(pm::_PM.AbstractPowerModel)
             + sum(z_branch[i]*branch["power_risk"]+branch["base_risk"] for (i,branch) in _PM.ref(pm, :branch))
             + sum(z_demand[i]*load["power_risk"]+load["base_risk"] for (i,load) in _PM.ref(pm,:load))
             # + sum(z_storage[i]*storage["power_risk"]+storage["base_risk"] for (i,storage) in _PM.ref(pm, :storage))
-        )/total_risk
+        )
     )
 
 end
