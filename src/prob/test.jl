@@ -82,11 +82,11 @@ function _build_normalized_ops(pm::_PM.AbstractPowerModel)
         for (id,comp) in  _PM.ref(pm, comp_type)
             if ~haskey(comp, "power_risk")
                 Memento.warn(_PM._LOGGER, "$(comp_type) $(id) does not have a power_risk value, using 0.1 as a default")
-                comp["power_risk"] = 0.1
+                comp["power_risk"] = 0.0
             end
             if ~haskey(comp, "base_risk")
                 Memento.warn(_PM._LOGGER, "$(comp_type) $(id) does not have a base_risk value, using 0.1 as a default")
-                comp["base_risk"] = 0.1
+                comp["base_risk"] = 0.0
             end
         end
     end
@@ -113,13 +113,102 @@ function _build_normalized_ops(pm::_PM.AbstractPowerModel)
             + sum(z_demand[i]*load["power_risk"]+load["base_risk"] for (i,load) in _PM.ref(pm,:load))
         )/total_risk
     )
-
 end
 
 
 # Threshold Risk problem
+""
+function _run_threshold_ops(file, model_constructor, optimizer; kwargs...)
+    return _PM.solve_model(file, model_constructor, optimizer, _build_threshold_ops;
+        ref_extensions=[_PM.ref_add_on_off_va_bounds!], kwargs...)
+end
+
+
+""
+function _build_threshold_ops(pm::_PM.AbstractPowerModel)
+
+    variable_bus_active_indicator(pm)
+    variable_bus_voltage_on_off(pm)
+
+    _PM.variable_gen_indicator(pm)
+    _PM.variable_gen_power_on_off(pm)
+
+    _PM.variable_branch_indicator(pm)
+    _PM.variable_branch_power(pm)
+
+    _PM.variable_load_power_factor(pm, relax=true)
+    _PM.variable_shunt_admittance_factor(pm, relax=true)
+
+    _PM.constraint_model_voltage_on_off(pm)
+
+    for i in _PM.ids(pm, :ref_buses)
+        _PM.constraint_theta_ref(pm, i)
+    end
+
+    for i in _PM.ids(pm, :gen)
+        constraint_generation_active(pm, i)
+    end
+
+    for i in _PM.ids(pm, :bus)
+        constraint_bus_voltage_on_off(pm, i)
+        _PMR.constraint_power_balance_shed(pm, i)
+    end
+
+    for i in _PM.ids(pm, :branch)
+        constraint_branch_active(pm, i)
+        _PM.constraint_ohms_yt_from_on_off(pm, i)
+        _PM.constraint_ohms_yt_to_on_off(pm, i)
+
+        _PM.constraint_voltage_angle_difference_on_off(pm, i)
+
+        _PM.constraint_thermal_limit_from_on_off(pm, i)
+        _PM.constraint_thermal_limit_to_on_off(pm, i)
+    end
+
+    for i in _PM.ids(pm, :load)
+        constraint_load_active(pm, i)
+    end
+
+    for i in _PM.ids(pm, :dcline)
+        _PM.constraint_dcline_power_losses(pm, i) #not active decision variables
+    end
+
+    constraint_load_served(pm)
+
+    # Add Objective
+    # ------------------------------------
+    # Maximize power delivery while minimizing wildfire risk
+    z_demand = _PM.var(pm, nw_id_default, :z_demand)
+    z_gen = _PM.var(pm, nw_id_default, :z_gen)
+    z_branch = _PM.var(pm, nw_id_default, :z_branch)
+    z_bus = _PM.var(pm, nw_id_default, :z_bus)
+
+    for comp_type in [:gen, :load, :bus, :branch]
+        for (id,comp) in  _PM.ref(pm, comp_type)
+            if ~haskey(comp, "power_risk")
+                Memento.warn(_PM._LOGGER, "$(comp_type) $(id) does not have a power_risk value, using 0.1 as a default")
+                comp["power_risk"] = 0.0
+            end
+            if ~haskey(comp, "base_risk")
+                Memento.warn(_PM._LOGGER, "$(comp_type) $(id) does not have a base_risk value, using 0.1 as a default")
+                comp["base_risk"] = 0.0
+            end
+        end
+    end
+
+    JuMP.@objective(pm.model, Min,
+            sum(z_gen[i]*gen["power_risk"]+gen["base_risk"] for (i,gen) in _PM.ref(pm, :gen))
+            + sum(z_bus[i]*bus["power_risk"]+bus["base_risk"] for (i,bus) in _PM.ref(pm, :bus))
+            + sum(z_branch[i]*branch["power_risk"]+branch["base_risk"] for (i,branch) in _PM.ref(pm, :branch))
+            + sum(z_demand[i]*load["power_risk"]+load["base_risk"] for (i,load) in _PM.ref(pm,:load))
+
+    )
+end
 
 # SCOPS problem
+
+# Contingency Evaluator Problem
+
 
 # OPS with storage
 ""
@@ -269,7 +358,7 @@ function _build_mn_strg_ops(pm::_PM.AbstractPowerModel)
         end
 
         for i in _PM.ids(pm, :bus, nw=n)
-            constraint_bus_voltage_on_off(pm, i)
+            constraint_bus_voltage_on_off(pm, i, nw=n)
             _PMR.constraint_power_balance_shed(pm, i, nw=n)
         end
 
@@ -342,7 +431,7 @@ function _build_mn_strg_ops(pm::_PM.AbstractPowerModel)
         for nwid in _PM.nw_ids(pm)
             for (id,comp) in  _PM.ref(pm, nwid, comp_type)
                 if ~haskey(comp, "power_risk")
-                    @warn "$(comp_type) $(id) does not have a power_risk value, using 0.0 as a default"
+                    Memento.warn(_PM._LOGGER, "$(comp_type) $(id) does not have a power_risk value, using 0.0 as a default")
                     comp["power_risk"] = 0.0
                 end
             end
