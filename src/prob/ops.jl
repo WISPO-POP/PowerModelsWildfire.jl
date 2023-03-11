@@ -104,6 +104,7 @@ function build_ops(pm::_PM.AbstractPowerModel)
 
 end
 
+
 ""
 function run_mopsar(file, model_constructor, optimizer; kwargs...)
     return _PM.solve_model(file, model_constructor, optimizer, build_mopsar;
@@ -216,7 +217,7 @@ function build_mopsar(pm::_PM.AbstractPowerModel)
         for nwid in _PM.nw_ids(pm)
             for (id,comp) in  _PM.ref(pm, nwid, comp_type)
                 if ~haskey(comp, "power_risk")
-                    @warn "$(comp_type) $(id) does not have a power_risk value, using 0.0 as a default"
+                    Memento.warn(_PM._LOGGER, "$(comp_type) $(id) does not have a power_risk value, using 0.0 as a default")
                     comp["power_risk"] = 0.0
                 end
             end
