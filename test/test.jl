@@ -54,3 +54,26 @@ end
     @test result_thresh_ops["termination_status"] == LOCALLY_SOLVED
 end
 
+
+@testset "_run_redispatch" begin
+    case = PowerModels.parse_file("./networks/case5_risk_sys2.m")
+    result_redispatch = PowerModelsWildfire._run_redispatch(case, PowerModels.ACPPowerModel, minlp_solver)
+    @test result_redispatch["termination_status"] == LOCALLY_SOLVED
+    for (id,load) in result_redispatch["solution"]["load"]
+        @test isapprox(load["pd"], case["load"][id]["pd"]; atol=1e-4)
+        @test isapprox(load["qd"], case["load"][id]["qd"]; atol=1e-4)
+    end
+
+    result_normalized_ops = PowerModelsWildfire._run_normalized_ops(case, PowerModels.ACPPowerModel, minlp_solver)
+    PowerModelsRestoration.clean_status!(result_normalized_ops["solution"])
+    PowerModelsRestoration.update_status!(case, result_normalized_ops["solution"])
+
+    result_redispatch = PowerModelsWildfire._run_redispatch(case, PowerModels.ACPPowerModel, minlp_solver)
+    @test result_redispatch["termination_status"] == LOCALLY_SOLVED
+
+    load_served_ops = sum(load["pd"] for (id,load) in result_normalized_ops["solution"]["load"])
+    load_served_redis = sum(load["pd"] for (id,load) in result_redispatch["solution"]["load"])
+
+    @test isapprox(load_served_ops, load_served_redis; atol=1e-2)
+
+end
