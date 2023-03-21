@@ -571,3 +571,51 @@ function _build_dcline_ops(pm::_PM.AbstractPowerModel)
     )
 
 end
+
+
+# Load Redispatch for OPS
+"Caculate power flow for a fixed topology, allowing load shed"
+function _run_redispatch(data::Dict{String,Any}, model_type::Type, optimizer; kwargs...)
+    return _PM.solve_model(data, model_type, optimizer, _build_redispatch; multinetwork=false,
+    ref_extensions=[_PM.ref_add_on_off_va_bounds!], kwargs...)
+end
+
+""
+function _build_redispatch(pm::_PM.AbstractPowerModel)
+    _PM.variable_bus_voltage(pm)
+
+    _PM.variable_gen_power(pm)
+    _PM.variable_branch_power(pm)
+
+    _PM.variable_load_power_factor(pm, relax=true)
+    _PM.variable_shunt_admittance_factor(pm, relax=true)
+
+    _PM.constraint_model_voltage(pm)
+
+    for i in _PM.ids(pm, :ref_buses)
+        _PM.constraint_theta_ref(pm, i)
+    end
+
+    for i in _PM.ids(pm, :bus)
+        _PMR.constraint_power_balance_shed(pm, i)
+    end
+
+    for i in _PM.ids(pm, :branch)
+        _PM.constraint_ohms_yt_from(pm, i)
+        _PM.constraint_ohms_yt_to(pm, i)
+
+        _PM.constraint_voltage_angle_difference(pm, i)
+
+        _PM.constraint_thermal_limit_from(pm, i)
+        _PM.constraint_thermal_limit_to(pm, i)
+    end
+
+    # Objective
+    z_demand = _PM.var(pm, :z_demand)
+    load_weight = Dict(i => get(load, "weight", 1.0) for (i,load) in _PM.ref(pm, :load))
+    JuMP.@objective(pm.model, Max,
+        sum(load_weight[i]*abs(load["pd"])*z_demand[i] for (i,load) in _PM.ref(pm, :load))
+    )
+end
+
+
