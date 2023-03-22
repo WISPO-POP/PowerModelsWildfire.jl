@@ -14,7 +14,7 @@ function _run_normalized_ops(file, model_constructor, optimizer; kwargs...)
         ref_extensions=[_PM.ref_add_on_off_va_bounds!], kwargs...)
 end
 
-
+""
 function _build_normalized_ops(pm::_PM.AbstractPowerModel)
 
     variable_bus_active_indicator(pm)
@@ -206,6 +206,108 @@ function _build_threshold_ops(pm::_PM.AbstractPowerModel)
 end
 
 # SCOPS problem
+""
+function _run_scops(file, model_constructor::Type, optimizer; kwargs...)
+    return _PM.solve_model(file, model_constructor, optimizer, _build_scops;
+        multinetwork=true, ref_extensions=[_PM.ref_add_on_off_va_bounds!], kwargs...)
+end
+
+""
+function _build_scops(pm::_PM.AbstractPowerModel)
+    for (n, network) in _PM.nws(pm)
+
+        variable_bus_active_indicator(pm, nw=n)
+        variable_bus_voltage_on_off(pm, nw=n)
+
+        _PM.variable_gen_indicator(pm, nw=n)
+        _PM.variable_gen_power_on_off(pm, nw=n)
+
+        _PM.variable_branch_indicator(pm, nw=n)
+        _PM.variable_branch_power(pm, nw=n)
+
+        _PM.variable_load_power_factor(pm, nw=n, relax=true)
+        _PM.variable_shunt_admittance_factor(pm, nw=n, relax=true)
+
+        _PM.constraint_model_voltage_on_off(pm, nw=n)
+        for i in _PM.ids(pm, :ref_buses, nw=n)
+            _PM.constraint_theta_ref(pm, i, nw=n)
+        end
+
+        for i in _PM.ids(pm, :gen, nw=n)
+            constraint_generation_active(pm, i, nw=n)
+        end
+
+        for i in _PM.ids(pm, :bus, nw=n)
+            constraint_bus_voltage_on_off(pm, i, nw=n)
+            _PMR.constraint_power_balance_shed(pm, i, nw=n)
+        end
+
+        for i in _PM.ids(pm, :branch, nw=n)
+            constraint_branch_active(pm, i, nw=n)
+            _PM.constraint_ohms_yt_from_on_off(pm, i, nw=n)
+            _PM.constraint_ohms_yt_to_on_off(pm, i, nw=n)
+
+            _PM.constraint_voltage_angle_difference_on_off(pm, i, nw=n)
+
+            _PM.constraint_thermal_limit_from_on_off(pm, i, nw=n)
+            _PM.constraint_thermal_limit_to_on_off(pm, i, nw=n)
+        end
+
+        for i in _PM.ids(pm, :load, nw=n)
+            constraint_load_active(pm, i, nw=n)
+        end
+    end
+
+    network_ids = sort(collect(_PM.nw_ids(pm)))
+    n_1 = network_ids[1]
+
+    constraint_system_load_threshold(pm, nw=n_1)
+
+
+    for n_2 in network_ids[2:end]
+        constraint_contingency_load_shed(pm, n_1, n_2)
+
+        for i in _PM.ids(pm, :gen, nw=n_2)
+            constraint_gen_contingency(pm, i, n_1, n_2)
+            constraint_gen_flexibility(pm, i, n_1, n_2)
+        end
+        for i in _PM.ids(pm, :bus, nw=n_2)
+            constraint_bus_contingency(pm, i, n_1, n_2)
+        end
+        for i in _PM.ids(pm, :branch, nw=n_2)
+            constraint_branch_contingency(pm, i, n_1, n_2)
+        end
+        for i in _PM.ids(pm, :load, nw=n_2)
+            constraint_load_deenergized(pm, i, n_1, n_2)
+        end
+    end
+
+    # Add Objective Function
+    # ----------------------
+    # Minimize wildfire risk
+    for comp_type in [:gen, :load, :bus, :branch]
+        for (id,comp) in  _PM.ref(pm, n_1, comp_type)
+            if ~haskey(comp, "power_risk")
+                @warn "$(comp_type) $(id) does not have a power_risk value, using 0.0 as a default"
+                comp["power_risk"] = 0.0
+            end
+        end
+    end
+
+    z_demand = _PM.var(pm, n_1, :z_demand)
+    z_gen = _PM.var(pm, n_1, :z_gen)
+    z_branch = _PM.var(pm, n_1, :z_branch)
+    z_bus = _PM.var(pm, n_1, :z_bus)
+
+    JuMP.@objective(pm.model, Min,
+        (     sum(z_gen[i]*gen["power_risk"] for (i,gen) in _PM.ref(pm, n_1, :gen))
+            + sum(z_bus[i]*bus["power_risk"] for (i,bus) in _PM.ref(pm, n_1, :bus))
+            + sum(z_branch[i]*branch["power_risk"] for (i,branch) in _PM.ref(pm, n_1, :branch))
+            + sum(z_demand[i]*load["power_risk"] for (i,load) in _PM.ref(pm, n_1, :load))
+        )
+    )
+
+end
 
 # Contingency Evaluator Problem
 
