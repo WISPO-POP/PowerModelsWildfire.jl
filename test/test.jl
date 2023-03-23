@@ -77,3 +77,305 @@ end
     @test isapprox(load_served_ops, load_served_redis; atol=1e-2)
 
 end
+
+
+@testset "_run_scops" begin
+    @testset "DCPPowerModel" begin
+        case = PowerModels.parse_file("./networks/case5_risk_sys2.m")
+        case["alpha"]=0.9
+        case["beta"]=0.2
+        total_load = sum(load["pd"] for (id,load) in case["load"])
+        for (id,gen) in case["gen"]
+            gen["flexibility"]=0.05
+        end
+
+        mn_case = PowerModels.replicate(case, length(keys(case["branch"]))+1)
+
+        keyset = collect(keys(case["branch"]))
+        mn_case["nw"]["1"]["contingencies"]=Dict()
+        for idx in 1:length(keyset)
+            mn_case["nw"]["$(1+idx)"]["contingencies"]=Dict("branch"=>[keyset[idx]])
+        end
+
+        # requires MINLP solver because of a quadratic constraint
+        result_scops = PowerModelsWildfire._run_scops(mn_case, PowerModels.DCPPowerModel, minlp_solver)
+        @test result_scops["termination_status"] == LOCALLY_SOLVED
+
+        # total load = 10.0
+        # period 1 load: (should be 9)
+        @test round(sum(load["pd"] for (id,load) in result_scops["solution"]["nw"]["1"]["load"]), digits=2) >= 9.0
+
+        # period 2-6 load: (should be more than 8)
+        min_load = sum(load["pd"] for (id,load) in result_scops["solution"]["nw"]["1"]["load"]) -
+                     case["beta"]*sum(load["pd"] for (id,load) in case["load"])
+
+        @test round(sum(load["pd"] for (id,load) in result_scops["solution"]["nw"]["2"]["load"]), digits=2) >= min_load
+        @test round(sum(load["pd"] for (id,load) in result_scops["solution"]["nw"]["3"]["load"]), digits=2) >= min_load
+        @test round(sum(load["pd"] for (id,load) in result_scops["solution"]["nw"]["4"]["load"]), digits=2) >= min_load
+        @test round(sum(load["pd"] for (id,load) in result_scops["solution"]["nw"]["5"]["load"]), digits=2) >= min_load
+        @test round(sum(load["pd"] for (id,load) in result_scops["solution"]["nw"]["6"]["load"]), digits=2) >= min_load
+        @test round(sum(load["pd"] for (id,load) in result_scops["solution"]["nw"]["7"]["load"]), digits=2) >= min_load
+
+        # test branch energization status
+        for (nwid,nw) in result_scops["solution"]["nw"]
+            for (id,branch) in nw["branch"]
+                get(mn_case["nw"][nwid]["contingencies"],"branch",[])
+                if id in get(mn_case["nw"][nwid]["contingencies"],"branch",[])
+                    @test isapprox(branch["br_status"], 0.0; atol=1e-2)
+                else
+                    @test isapprox(branch["br_status"], result_scops["solution"]["nw"]["1"]["branch"][id]["br_status"]; atol=1e-2)
+                end
+            end
+        end
+
+        # test gen energization status
+        for (nwid,nw) in result_scops["solution"]["nw"]
+            for (id,gen) in nw["gen"]
+                get(mn_case["nw"][nwid]["contingencies"],"gen",[])
+                if id in get(mn_case["nw"][nwid]["contingencies"],"gen",[])
+                    @test isapprox(gen["gen_status"], 0.0; atol=1e-2)
+                else
+                    @test round(gen["gen_status"], digits=2)  <= round(result_scops["solution"]["nw"]["1"]["gen"][id]["gen_status"], digits=2)
+                end
+            end
+        end
+
+        # test load energization status
+        for (nwid,nw) in result_scops["solution"]["nw"]
+            for (id,load) in nw["load"]
+                get(mn_case["nw"][nwid]["contingencies"],"load",[])
+                if id in get(mn_case["nw"][nwid]["contingencies"],"load",[])
+                    @test isapprox(load["status"], 0.0; atol=1e-2)
+                else
+                    @test round(load["status"], digits=2)  <= round(result_scops["solution"]["nw"]["1"]["load"][id]["status"], digits=2)
+                end
+            end
+        end
+
+        # test bus de-energization status
+        for (nwid,nw) in result_scops["solution"]["nw"]
+            for (id,bus) in nw["bus"]
+                get(mn_case["nw"][nwid]["contingencies"],"bus",[])
+                if id in get(mn_case["nw"][nwid]["contingencies"],"bus",[])
+                    @test isapprox(bus["status"], 0.0; atol=1e-2)
+                else
+                    @test isapprox(bus["status"], result_scops["solution"]["nw"]["1"]["bus"][id]["status"]; atol=1e-2)
+                end
+            end
+        end
+
+        # test gen power output
+        for (nwid,nw) in result_scops["solution"]["nw"]
+            for (id,gen) in nw["gen"]
+                get(mn_case["nw"][nwid]["contingencies"],"gen",[])
+                if isapprox(gen["gen_status"], 0.0; atol=1e-2)
+                    @test isapprox(gen["pg"], 0.0; atol=1e-2)
+                else
+                    flex = mn_case["nw"][nwid]["gen"][id]["flexibility"]*mn_case["nw"][nwid]["gen"][id]["pmax"]
+                    base_output = result_scops["solution"]["nw"]["1"]["gen"][id]["pg"]
+                    @test gen["pg"] <= base_output + flex
+                    @test gen["pg"] >= base_output - flex
+                end
+            end
+        end
+    end
+
+    # Juniper fails to find feasible solution.  Commercial solver Gurobi can find feasible solution.
+    # @testset "SOCWRPowerModel" begin
+    #     case = PowerModels.parse_file("./networks/case3.m")
+    #     case["alpha"]=0.9
+    #     case["beta"]=0.2
+    #     total_load = sum(load["pd"] for (id,load) in case["load"])
+    #     for (id,gen) in case["gen"]
+    #         gen["flexibility"]=0.05
+    #     end
+
+    #     mn_case = PowerModels.replicate(case, length(keys(case["branch"]))+1)
+
+    #     keyset = collect(keys(case["branch"]))
+    #     mn_case["nw"]["1"]["contingencies"]=Dict()
+    #     for idx in 1:length(keyset)
+    #         mn_case["nw"]["$(1+idx)"]["contingencies"]=Dict("branch"=>[keyset[idx]])
+    #     end
+
+    #     # requires MINLP solver because of a quadratic constraint
+    #     result_scops = PowerModelsWildfire._run_scops(mn_case, PowerModels.SOCWRPowerModel, minlp_solver)
+    #     @test result_scops["termination_status"] == LOCALLY_SOLVED
+
+
+    #     # total load = 3.15
+    #     total_load = sum(load["pd"] for (id,load) in case["load"])
+    #     # period 1 load: (should be more than 90% of total load)
+    #     @test round(sum(load["pd"] for (id,load) in result_scops["solution"]["nw"]["1"]["load"]), digits=2) >= 0.9*total_load
+
+    #     # period 2-6 load: (should be more than 8)
+    #     min_load = sum(load["pd"] for (id,load) in result_scops["solution"]["nw"]["1"]["load"]) -
+    #                 case["beta"]*sum(load["pd"] for (id,load) in case["load"])
+
+    #     @test round(sum(load["pd"] for (id,load) in result_scops["solution"]["nw"]["2"]["load"]), digits=2) >= min_load
+    #     @test round(sum(load["pd"] for (id,load) in result_scops["solution"]["nw"]["3"]["load"]), digits=2) >= min_load
+    #     @test round(sum(load["pd"] for (id,load) in result_scops["solution"]["nw"]["4"]["load"]), digits=2) >= min_load
+
+    #     # test branch energization status
+    #     for (nwid,nw) in result_scops["solution"]["nw"]
+    #         for (id,branch) in nw["branch"]
+    #             get(mn_case["nw"][nwid]["contingencies"],"branch",[])
+    #             if id in get(mn_case["nw"][nwid]["contingencies"],"branch",[])
+    #                 @test isapprox(branch["br_status"], 0.0; atol=1e-2)
+    #             else
+    #                 @test isapprox(branch["br_status"], result_scops["solution"]["nw"]["1"]["branch"][id]["br_status"]; atol=1e-2)
+    #             end
+    #         end
+    #     end
+
+    #     # test gen energization status
+    #     for (nwid,nw) in result_scops["solution"]["nw"]
+    #         for (id,gen) in nw["gen"]
+    #             get(mn_case["nw"][nwid]["contingencies"],"gen",[])
+    #             if id in get(mn_case["nw"][nwid]["contingencies"],"gen",[])
+    #                 @test isapprox(gen["gen_status"], 0.0; atol=1e-2)
+    #             else
+    #                 @test round(gen["gen_status"], digits=2)  <= round(result_scops["solution"]["nw"]["1"]["gen"][id]["gen_status"], digits=2)
+    #             end
+    #         end
+    #     end
+
+    #     # test load energization status
+    #     for (nwid,nw) in result_scops["solution"]["nw"]
+    #         for (id,load) in nw["load"]
+    #             get(mn_case["nw"][nwid]["contingencies"],"load",[])
+    #             if id in get(mn_case["nw"][nwid]["contingencies"],"load",[])
+    #                 @test isapprox(load["status"], 0.0; atol=1e-2)
+    #             else
+    #                 @test round(load["status"], digits=2)  <= round(result_scops["solution"]["nw"]["1"]["load"][id]["status"], digits=2)
+    #             end
+    #         end
+    #     end
+
+    #     # test bus de-energization status
+    #     for (nwid,nw) in result_scops["solution"]["nw"]
+    #         for (id,bus) in nw["bus"]
+    #             get(mn_case["nw"][nwid]["contingencies"],"bus",[])
+    #             if id in get(mn_case["nw"][nwid]["contingencies"],"bus",[])
+    #                 @test isapprox(bus["status"], 0.0; atol=1e-2)
+    #             else
+    #                 @test isapprox(bus["status"], result_scops["solution"]["nw"]["1"]["bus"][id]["status"]; atol=1e-2)
+    #             end
+    #         end
+    #     end
+
+    #     # test gen power output
+    #     for (nwid,nw) in result_scops["solution"]["nw"]
+    #         for (id,gen) in nw["gen"]
+    #             get(mn_case["nw"][nwid]["contingencies"],"gen",[])
+    #             if isapprox(gen["gen_status"], 0.0; atol=1e-2)
+    #                 @test isapprox(gen["pg"], 0.0; atol=1e-2)
+    #             else
+    #                 flex = mn_case["nw"][nwid]["gen"][id]["flexibility"]*mn_case["nw"][nwid]["gen"][id]["pmax"]
+    #                 base_output = result_scops["solution"]["nw"]["1"]["gen"][id]["pg"]
+    #                 @test gen["pg"] <= base_output + flex
+    #                 @test gen["pg"] >= base_output - flex
+    #             end
+    #         end
+    #     end
+    # end
+
+    @testset "ACPPowerModel" begin
+        case = PowerModels.parse_file("./networks/case3.m")
+        case["alpha"]=0.9
+        case["beta"]=0.2
+        total_load = sum(load["pd"] for (id,load) in case["load"])
+        for (id,gen) in case["gen"]
+            gen["flexibility"]=0.05
+        end
+
+        mn_case = PowerModels.replicate(case, length(keys(case["branch"]))+1)
+
+        keyset = collect(keys(case["branch"]))
+        mn_case["nw"]["1"]["contingencies"]=Dict()
+        for idx in 1:length(keyset)
+            mn_case["nw"]["$(1+idx)"]["contingencies"]=Dict("branch"=>[keyset[idx]])
+        end
+
+        # requires MINLP solver because of a quadratic constraint
+        result_scops = PowerModelsWildfire._run_scops(mn_case, PowerModels.ACPPowerModel, minlp_solver)
+        @test result_scops["termination_status"] == LOCALLY_SOLVED
+
+
+        # total load = 3.15
+        total_load = sum(load["pd"] for (id,load) in case["load"])
+        # period 1 load: (should be more than 90% of total load)
+        @test round(sum(load["pd"] for (id,load) in result_scops["solution"]["nw"]["1"]["load"]), digits=2) >= 0.9*total_load
+
+        # period 2-6 load: (should be more than 8)
+        min_load = sum(load["pd"] for (id,load) in result_scops["solution"]["nw"]["1"]["load"]) -
+                    case["beta"]*sum(load["pd"] for (id,load) in case["load"])
+
+        @test round(sum(load["pd"] for (id,load) in result_scops["solution"]["nw"]["2"]["load"]), digits=2) >= min_load
+        @test round(sum(load["pd"] for (id,load) in result_scops["solution"]["nw"]["3"]["load"]), digits=2) >= min_load
+        @test round(sum(load["pd"] for (id,load) in result_scops["solution"]["nw"]["4"]["load"]), digits=2) >= min_load
+
+        # test branch energization status
+        for (nwid,nw) in result_scops["solution"]["nw"]
+            for (id,branch) in nw["branch"]
+                get(mn_case["nw"][nwid]["contingencies"],"branch",[])
+                if id in get(mn_case["nw"][nwid]["contingencies"],"branch",[])
+                    @test isapprox(branch["br_status"], 0.0; atol=1e-2)
+                else
+                    @test isapprox(branch["br_status"], result_scops["solution"]["nw"]["1"]["branch"][id]["br_status"]; atol=1e-2)
+                end
+            end
+        end
+
+        # test gen energization status
+        for (nwid,nw) in result_scops["solution"]["nw"]
+            for (id,gen) in nw["gen"]
+                get(mn_case["nw"][nwid]["contingencies"],"gen",[])
+                if id in get(mn_case["nw"][nwid]["contingencies"],"gen",[])
+                    @test isapprox(gen["gen_status"], 0.0; atol=1e-2)
+                else
+                    @test round(gen["gen_status"], digits=2)  <= round(result_scops["solution"]["nw"]["1"]["gen"][id]["gen_status"], digits=2)
+                end
+            end
+        end
+
+        # test load energization status
+        for (nwid,nw) in result_scops["solution"]["nw"]
+            for (id,load) in nw["load"]
+                get(mn_case["nw"][nwid]["contingencies"],"load",[])
+                if id in get(mn_case["nw"][nwid]["contingencies"],"load",[])
+                    @test isapprox(load["status"], 0.0; atol=1e-2)
+                else
+                    @test round(load["status"], digits=2)  <= round(result_scops["solution"]["nw"]["1"]["load"][id]["status"], digits=2)
+                end
+            end
+        end
+
+        # test bus de-energization status
+        for (nwid,nw) in result_scops["solution"]["nw"]
+            for (id,bus) in nw["bus"]
+                get(mn_case["nw"][nwid]["contingencies"],"bus",[])
+                if id in get(mn_case["nw"][nwid]["contingencies"],"bus",[])
+                    @test isapprox(bus["status"], 0.0; atol=1e-2)
+                else
+                    @test isapprox(bus["status"], result_scops["solution"]["nw"]["1"]["bus"][id]["status"]; atol=1e-2)
+                end
+            end
+        end
+
+        # test gen power output
+        for (nwid,nw) in result_scops["solution"]["nw"]
+            for (id,gen) in nw["gen"]
+                get(mn_case["nw"][nwid]["contingencies"],"gen",[])
+                if isapprox(gen["gen_status"], 0.0; atol=1e-2)
+                    @test isapprox(gen["pg"], 0.0; atol=1e-2)
+                else
+                    flex = mn_case["nw"][nwid]["gen"][id]["flexibility"]*mn_case["nw"][nwid]["gen"][id]["pmax"]
+                    base_output = result_scops["solution"]["nw"]["1"]["gen"][id]["pg"]
+                    @test gen["pg"] <= base_output + flex
+                    @test gen["pg"] >= base_output - flex
+                end
+            end
+        end
+    end
+end
