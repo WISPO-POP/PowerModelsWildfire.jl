@@ -19,7 +19,6 @@ include("core/data.jl")
 include("form/acp.jl")
 include("form/dcp.jl")
 include("form/wr.jl")
-include("form/wrm.jl")
 
 include("prob/ops.jl")
 include("prob/test.jl")
