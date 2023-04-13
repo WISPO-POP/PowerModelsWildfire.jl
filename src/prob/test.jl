@@ -81,11 +81,11 @@ function _build_normalized_ops(pm::_PM.AbstractPowerModel)
     for comp_type in [:gen, :load, :bus, :branch]
         for (id,comp) in  _PM.ref(pm, comp_type)
             if ~haskey(comp, "power_risk")
-                Memento.warn(_PM._LOGGER, "$(comp_type) $(id) does not have a power_risk value, using 0.1 as a default")
+                Memento.warn(_PM._LOGGER, "$(comp_type) $(id) does not have a power_risk value, using 0.0 as a default")
                 comp["power_risk"] = 0.0
             end
             if ~haskey(comp, "base_risk")
-                Memento.warn(_PM._LOGGER, "$(comp_type) $(id) does not have a base_risk value, using 0.1 as a default")
+                Memento.warn(_PM._LOGGER, "$(comp_type) $(id) does not have a base_risk value, using 0.0 as a default")
                 comp["base_risk"] = 0.0
             end
         end
@@ -310,6 +310,80 @@ function _build_scops(pm::_PM.AbstractPowerModel)
 end
 
 # Contingency Evaluator Problem
+""
+function _run_contingency_evaluator(file, model_constructor::Type, optimizer; kwargs...)
+    return _PM.solve_model(file, model_constructor, optimizer, _build_contingency_evaluator;
+        ref_extensions=[_PM.ref_add_on_off_va_bounds!], kwargs...)
+end
+
+""
+function _build_contingency_evaluator(pm::_PM.AbstractPowerModel)
+
+    variable_bus_active_indicator(pm)
+    variable_bus_voltage_on_off(pm)
+
+    _PM.variable_gen_indicator(pm)
+    _PM.variable_gen_power_on_off(pm)
+
+    _PM.variable_branch_indicator(pm)
+    _PM.variable_branch_power(pm)
+
+    _PM.variable_load_power_factor(pm, relax=true)
+    _PM.variable_shunt_admittance_factor(pm, relax=true)
+
+    _PM.constraint_model_voltage_on_off(pm)
+
+    for i in _PM.ids(pm, :ref_buses)
+        _PM.constraint_theta_ref(pm, i)
+    end
+
+    for i in _PM.ids(pm, :gen)
+        constraint_generation_active(pm, i)
+    end
+
+    for i in _PM.ids(pm, :bus)
+        constraint_bus_voltage_on_off(pm, i)
+        _PMR.constraint_power_balance_shed(pm, i)
+    end
+
+    for i in _PM.ids(pm, :branch)
+        constraint_branch_active(pm, i)
+        _PM.constraint_ohms_yt_from_on_off(pm, i)
+        _PM.constraint_ohms_yt_to_on_off(pm, i)
+
+        _PM.constraint_voltage_angle_difference_on_off(pm, i)
+
+        _PM.constraint_thermal_limit_from_on_off(pm, i)
+        _PM.constraint_thermal_limit_to_on_off(pm, i)
+    end
+
+    for i in _PM.ids(pm, :load)
+        constraint_load_active(pm, i)
+    end
+
+    for i in _PM.ids(pm, :gen)
+        constraint_gen_contingency(pm, i) # if gen in contingency
+        # constraint_gen_flexibility(pm, i) # permiited gen flexibility (ALL CONTINGENCIES)
+    end
+    for i in _PM.ids(pm, :bus)
+        constraint_bus_contingency(pm, i) # if bus in contingency
+    end
+    for i in _PM.ids(pm, :branch)
+        constraint_branch_contingency(pm, i) # if branch in contingency
+    end
+    for i in _PM.ids(pm, :load)
+        constraint_load_deenergized(pm, i) # load cannot increase
+    end
+
+
+    # Add Objective Function
+    # ----------------------
+    # Maximise load served
+    z_demand = _PM.var(pm, :z_demand)
+
+    JuMP.@objective(pm.model, Max, sum(z_demand[i]*load["pd"] for (i,load) in _PM.ref(pm, :load)))
+
+end
 
 
 # OPS with storage
