@@ -242,10 +242,9 @@ function constraint_gen_contingency(pm::_PM.AbstractPowerModel, i::Int; nw::Int=
     z_gen_2 = _PM.var(pm, nw, :z_gen, i)
 
 
-    @show cont = parse.(Int, get(_PM.ref(pm, nw, :contingencies), "gen", String[]))
+    cont = parse.(Int, get(_PM.ref(pm, nw, :contingencies), "gen", String[]))
 
     if i in cont # de-energize gen if in contingency set
-        @show "Gen id $i"
         JuMP.@constraint(pm.model, z_gen_2 == 0)
     else # energization state set in pre-contingency period, but can trip offline (de-energize)
         JuMP.@constraint(pm.model, z_gen_2 <= z_gen_1)

@@ -379,3 +379,135 @@ end
         end
     end
 end
+
+@testset "_run_contingency_evaluator" begin
+
+    @testset "DCPPowerModel" begin
+        ## Cont Evaluator
+        case = PowerModels.parse_file("./networks/case3.m")
+        case["alpha"]=0.9
+        case["threshold"]=case["alpha"]
+        case["beta"]=0.2
+        total_load = sum(load["pd"] for (id,load) in case["load"])
+        for (id,gen) in case["gen"]
+            gen["flexibility"]=0.05
+        end
+
+
+        # requires MINLP solver because of a quadratic constraint
+        result_ops_dc = PowerModelsWildfire._run_threshold_ops(case, PowerModels.DCPPowerModel, milp_solver)
+
+        PowerModelsRestoration.clean_status!(result_ops_dc["solution"])
+        PowerModelsRestoration.update_status!(case, result_ops_dc["solution"])
+
+        # line outage contingency
+        case["contingencies"]=Dict("branch"=>["1"])
+        result_cont_dc = PowerModelsWildfire._run_contingency_evaluator(case, PowerModels.DCPPowerModel, milp_solver)
+
+        @test result_cont_dc["termination_status"] == OPTIMAL
+        @test isapprox(result_cont_dc["objective"], 2.2; atol=1e-4)
+        @test isapprox(result_cont_dc["solution"]["branch"]["1"]["pf"], 0.000; atol=1e-4)
+
+        # gen outage contingency
+        case["contingencies"]=Dict("gen"=>["1"])
+        result_cont_dc = PowerModelsWildfire._run_contingency_evaluator(case, PowerModels.DCPPowerModel, milp_solver)
+
+        @test result_cont_dc["termination_status"] == OPTIMAL
+        @test isapprox(result_cont_dc["objective"], 1.1; atol=1e-4)
+        @test isapprox(result_cont_dc["solution"]["gen"]["1"]["pg"], 0.000; atol=1e-4)
+
+        # bus outage contingency
+        case["contingencies"]=Dict("bus"=>["1"], "branch"=>["1","3"]) # bus 1 outage requires line 1 and 3 to be out
+        result_cont_dc = PowerModelsWildfire._run_contingency_evaluator(case, PowerModels.DCPPowerModel, milp_solver)
+
+        @test result_cont_dc["termination_status"] == OPTIMAL
+        @test isapprox(result_cont_dc["objective"], 1.1; atol=1e-4)
+        @test isapprox(result_cont_dc["solution"]["bus"]["1"]["status"], 0.000; atol=1e-4)
+    end
+
+    @testset "SOCWRPowerModel" begin
+        ## Cont Evaluator
+        case = PowerModels.parse_file("./networks/case3.m")
+        case["alpha"]=0.9
+        case["threshold"]=case["alpha"]
+        case["beta"]=0.2
+        total_load = sum(load["pd"] for (id,load) in case["load"])
+        for (id,gen) in case["gen"]
+            gen["flexibility"]=0.05
+        end
+
+
+        # requires MINLP solver because of a quadratic constraint
+        result_ops_soc = PowerModelsWildfire._run_threshold_ops(case, PowerModels.SOCWRPowerModel, minlp_solver)
+
+        PowerModelsRestoration.clean_status!(result_ops_soc["solution"])
+        PowerModelsRestoration.update_status!(case, result_ops_soc["solution"])
+
+        # line outage contingency
+        case["contingencies"]=Dict("branch"=>["1"])
+        result_cont_soc = PowerModelsWildfire._run_contingency_evaluator(case, PowerModels.SOCWRPowerModel, minlp_solver)
+
+        @test result_cont_soc["termination_status"] == LOCALLY_SOLVED
+        @test isapprox(result_cont_soc["objective"], 2.545; atol=1e-2)
+        @test isapprox(result_cont_soc["solution"]["branch"]["1"]["pf"], 0.000; atol=1e-4)
+
+        # gen outage contingency
+        case["contingencies"]=Dict("gen"=>["1"])
+        result_cont_soc = PowerModelsWildfire._run_contingency_evaluator(case, PowerModels.SOCWRPowerModel, minlp_solver)
+
+        @test result_cont_soc["termination_status"] == LOCALLY_SOLVED
+        @test isapprox(result_cont_soc["objective"], 1.5075; atol=1e-2)
+        @test isapprox(result_cont_soc["solution"]["gen"]["1"]["pg"], 0.000; atol=1e-4)
+
+        # bus outage contingency
+        case["contingencies"]=Dict("bus"=>["1"], "branch"=>["1","3"]) # bus 1 outage requires line 1 and 3 to be out
+        result_cont_soc = PowerModelsWildfire._run_contingency_evaluator(case, PowerModels.SOCWRPowerModel, minlp_solver)
+
+        @test result_cont_soc["termination_status"] == LOCALLY_SOLVED
+        @test isapprox(result_cont_soc["objective"], 1.4938; atol=1e-2)
+        @test isapprox(result_cont_soc["solution"]["bus"]["1"]["status"], 0.000; atol=1e-4)
+    end
+
+    @testset "ACPPowerModel" begin
+        ## Cont Evaluator
+        case = PowerModels.parse_file("./networks/case3.m")
+        case["alpha"]=0.9
+        case["threshold"]=case["alpha"]
+        case["beta"]=0.2
+        total_load = sum(load["pd"] for (id,load) in case["load"])
+        for (id,gen) in case["gen"]
+            gen["flexibility"]=0.05
+        end
+
+
+        # requires MINLP solver because of a quadratic constraint
+        result_ops_ac = PowerModelsWildfire._run_threshold_ops(case, PowerModels.ACPPowerModel, minlp_solver)
+
+        PowerModelsRestoration.clean_status!(result_ops_ac["solution"])
+        PowerModelsRestoration.update_status!(case, result_ops_ac["solution"])
+
+        # line outage contingency
+        case["contingencies"]=Dict("branch"=>["1"])
+        result_cont_ac = PowerModelsWildfire._run_contingency_evaluator(case, PowerModels.ACPPowerModel, minlp_solver)
+
+        @test result_cont_ac["termination_status"] == LOCALLY_SOLVED
+        @test isapprox(result_cont_ac["objective"], 2.4978; atol=1e-2)
+        @test isapprox(result_cont_ac["solution"]["branch"]["1"]["pf"], 0.000; atol=1e-4)
+
+        # # gen outage contingency  ### NO SOLUTION FOUND  (iteration limit on solver) ###
+        # case["contingencies"]=Dict("gen"=>["1"])
+        # result_cont_ac = PowerModelsWildfire._run_contingency_evaluator(case, PowerModels.ACPPowerModel, minlp_solver)
+
+        # @test result_cont_ac["termination_status"] == LOCALLY_SOLVED
+        # @test isapprox(result_cont_ac["objective"], 1.5075; atol=1e-2)
+        # @test isapprox(result_cont_ac["solution"]["gen"]["1"]["pg"], 0.000; atol=1e-4)
+
+        # # bus outage contingency ### NO SOLUTION FOUND  (locally infeasible) ###
+        # case["contingencies"]=Dict("bus"=>["1"], "branch"=>["1","3"]) # bus 1 outage requires line 1 and 3 to be out
+        # result_cont_ac = PowerModelsWildfire._run_contingency_evaluator(case, PowerModels.ACPPowerModel, minlp_solver)
+
+        # @test result_cont_ac["termination_status"] == LOCALLY_SOLVED
+        # @test isapprox(result_cont_ac["objective"], 1.471; atol=1e-2)
+        # @test isapprox(result_cont_ac["solution"]["bus"]["1"]["status"], 0.000; atol=1e-4)
+    end
+end
