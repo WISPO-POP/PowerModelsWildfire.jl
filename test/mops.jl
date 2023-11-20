@@ -3,7 +3,7 @@
 
         case = PowerModels.parse_file("./networks/case5_risk_mops.m")
         case_mn = PowerModels.replicate(case, 3)
-        result = PowerModelsWildfire.run_mops(case_mn, PowerModels.DCPPowerModel, milp_solver);
+        result = PowerModelsWildfire.run_mopsar(case_mn, PowerModels.DCPPowerModel, milp_solver);
         @test result["termination_status"] == OPTIMAL
         @test isapprox(result["objective"],0.0; atol=1e-4)
 
@@ -51,7 +51,7 @@
             branch["restoration_cost"]=0.0
         end
 
-        result = PowerModelsWildfire.run_mops(case_mn, PowerModels.DCPPowerModel, milp_solver);
+        result = PowerModelsWildfire.run_mopsar(case_mn, PowerModels.DCPPowerModel, milp_solver);
         @test result["termination_status"] == OPTIMAL
         @test isapprox(result["objective"],0.2833; atol=1e-4)
 
@@ -97,7 +97,7 @@
             branch["restoration_cost"]=10.0
         end
 
-        result = PowerModelsWildfire.run_mops(case_mn, PowerModels.DCPPowerModel, milp_solver);
+        result = PowerModelsWildfire.run_mopsar(case_mn, PowerModels.DCPPowerModel, milp_solver);
         @test result["termination_status"] == OPTIMAL
 
         @test isapprox(result["objective"],0.26; atol=1e-4)
@@ -160,7 +160,7 @@
                 comp["restoration_cost"]=10.0
             end
         end
-        result = PowerModelsWildfire.run_mops(case_mn, PowerModels.DCPPowerModel, milp_solver);
+        result = PowerModelsWildfire.run_mopsar(case_mn, PowerModels.DCPPowerModel, milp_solver);
         @test result["termination_status"] == OPTIMAL
 
         @test isapprox(result["objective"],0.0939; atol=1e-4)
@@ -194,14 +194,14 @@
         case = PowerModels.parse_file("./networks/case5_risk_mops.m")
         case_mn = PowerModels.replicate(case, 3)
 
-        result1 = run_mops(case_mn,PowerModels.DCPPowerModel,milp_solver)
+        result1 = run_mopsar(case_mn,PowerModels.DCPPowerModel,milp_solver)
 
         for (nwid,nw) in case_mn["nw"]
             for (id,load) in nw["load"]
                 load["weight"]=rand()
             end
         end
-        result2 = run_mops(case_mn,PowerModels.DCPPowerModel,milp_solver)
+        result2 = run_mopsar(case_mn,PowerModels.DCPPowerModel,milp_solver)
 
         @test result1["objective"] != result2["objective"]
     end

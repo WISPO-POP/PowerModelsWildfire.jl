@@ -40,15 +40,6 @@ function build_ops(pm::_PM.AbstractPowerModel)
         _PMR.constraint_power_balance_shed(pm, i)
     end
 
-    for i in _PM.ids(pm, :storage)
-        constraint_storage_active(pm, i)
-        _PM.constraint_storage_state(pm, i)
-        _PM.constraint_storage_complementarity_mi(pm, i)
-        _PM.constraint_storage_on_off(pm,i)
-        _PM.constraint_storage_loss(pm, i)
-        _PM.constraint_storage_thermal_limit(pm, i)
-    end
-
     for i in _PM.ids(pm, :branch)
         constraint_branch_active(pm, i)
         _PM.constraint_ohms_yt_from_on_off(pm, i)
@@ -65,14 +56,14 @@ function build_ops(pm::_PM.AbstractPowerModel)
     end
 
     for i in _PM.ids(pm, :dcline)
-        _PM.constraint_dcline_power_losses(pm, i) #not active decision variables
+        # no dcline line switching
+        _PM.constraint_dcline_power_losses(pm, i)
     end
 
     # Add Objective
     # ------------------------------------
     # Maximize power delivery while minimizing wildfire risk
     z_demand = _PM.var(pm, nw_id_default, :z_demand)
-    # z_storage = _PM.var(pm, nw_id_default, :z_storage)
     z_gen = _PM.var(pm, nw_id_default, :z_gen)
     z_branch = _PM.var(pm, nw_id_default, :z_branch)
     z_bus = _PM.var(pm, nw_id_default, :z_bus)
@@ -108,20 +99,20 @@ function build_ops(pm::_PM.AbstractPowerModel)
             + sum(z_bus[i]*bus["power_risk"]+bus["base_risk"] for (i,bus) in _PM.ref(pm, :bus))
             + sum(z_branch[i]*branch["power_risk"]+branch["base_risk"] for (i,branch) in _PM.ref(pm, :branch))
             + sum(z_demand[i]*load["power_risk"]+load["base_risk"] for (i,load) in _PM.ref(pm,:load))
-            # + sum(z_storage[i]*storage["power_risk"]+storage["base_risk"] for (i,storage) in _PM.ref(pm, :storage))
         )
     )
 
 end
 
+
 ""
-function run_mops(file, model_constructor, optimizer, kwargs...)
-    return _PM.solve_model(file, model_constructor, optimizer, build_mn_ops;
+function run_mopsar(file, model_constructor, optimizer; kwargs...)
+    return _PM.solve_model(file, model_constructor, optimizer, build_mopsar;
         multinetwork=true, ref_extensions=[_PM.ref_add_on_off_va_bounds!], kwargs...)
 end
 
 
-function build_mn_ops(pm::_PM.AbstractPowerModel)
+function build_mopsar(pm::_PM.AbstractPowerModel)
     for (n, network) in _PM.nws(pm)
 
         variable_branch_restoration_indicator(pm, nw=n)
@@ -135,13 +126,8 @@ function build_mn_ops(pm::_PM.AbstractPowerModel)
         _PM.variable_gen_indicator(pm, nw=n)
         _PM.variable_gen_power_on_off(pm, nw=n)
 
-        _PM.variable_storage_indicator(pm, nw=n)
-        _PM.variable_storage_power_mi_on_off(pm, nw=n)
-
         _PM.variable_branch_indicator(pm, nw=n)
         _PM.variable_branch_power(pm, nw=n)
-
-        _PM.variable_dcline_power(pm, nw=n)
 
         _PM.variable_load_power_factor(pm, nw=n, relax=true)
         _PM.variable_shunt_admittance_factor(pm, nw=n, relax=true)
@@ -158,15 +144,6 @@ function build_mn_ops(pm::_PM.AbstractPowerModel)
         for i in _PM.ids(pm, :bus, nw=n)
             constraint_bus_voltage_on_off(pm, i)
             _PMR.constraint_power_balance_shed(pm, i, nw=n)
-        end
-
-        for i in _PM.ids(pm, :storage, nw=n)
-            constraint_storage_active(pm, i, nw=n)
-            _PM.constraint_storage_state(pm, i, nw=n)
-            _PM.constraint_storage_complementarity_mi(pm, i, nw=n)
-            _PM.constraint_storage_on_off(pm,i, nw=n)
-            _PM.constraint_storage_loss(pm, i, nw=n)
-            _PM.constraint_storage_thermal_limit(pm, i, nw=n)
         end
 
         for i in _PM.ids(pm, :branch, nw=n)
@@ -240,7 +217,7 @@ function build_mn_ops(pm::_PM.AbstractPowerModel)
         for nwid in _PM.nw_ids(pm)
             for (id,comp) in  _PM.ref(pm, nwid, comp_type)
                 if ~haskey(comp, "power_risk")
-                    @warn "$(comp_type) $(id) does not have a power_risk value, using 0.0 as a default"
+                    Memento.warn(_PM._LOGGER, "$(comp_type) $(id) does not have a power_risk value, using 0.0 as a default")
                     comp["power_risk"] = 0.0
                 end
             end

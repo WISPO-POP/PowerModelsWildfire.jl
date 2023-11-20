@@ -105,3 +105,16 @@ function constraint_voltage_magnitude_sqr_on_off(pm::_PM.AbstractPowerModel, n::
     JuMP.@constraint(pm.model, w <= vmax^2*z_bus)
     JuMP.@constraint(pm.model, w >= vmin^2*z_bus)
 end
+
+function constraint_load_served(pm::_PM.AbstractPowerModel)
+    threshold= _PM.ref(pm, :threshold)
+    total_demand = sum(sum(load["pd"] for (id,load) in  _PM.ref(pm, nwid, :load)) for nwid in _PM.nw_ids(pm))
+    z_demand = Dict(nwid => _PM.var(pm, nwid, :z_demand) for nwid in _PM.nw_ids(pm))
+
+    JuMP.@constraint(pm.model,
+        sum(
+            sum(load["pd"]*z_demand[nwid][i] for (i,load) in _PM.ref(pm, nwid, :load))
+            for nwid in _PM.nw_ids(pm)
+        ) >= threshold*total_demand
+    )
+end
