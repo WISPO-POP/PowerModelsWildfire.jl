@@ -12,7 +12,7 @@ function run_voltage_shutoff_heuristic(case, model_constructor, optimizer; risk_
 
 
     network["risk_weight"]=0.0
-    ops_solution = run_ops(network,model_constructor,optimizer;kwargs...)
+    ops_solution = run_ops(network,model_constructor,optimizer; kwargs...)
     _PM.update_data!(network, ops_solution["solution"])
 
     disable_isolated_buses!(network)
