@@ -1,7 +1,7 @@
 name = "PowerModelsWildfire"
 uuid = "01a8e460-0890-11ea-3f19-8b8faecc21cc"
 authors = ["Noah Rhodes <noahx23@gmail.com>"]
-version = "0.5.0"
+version = "0.5.1"
 
 [deps]
 HiGHS = "87dc4568-4c63-4d18-b0c0-bb2238e4078b"
