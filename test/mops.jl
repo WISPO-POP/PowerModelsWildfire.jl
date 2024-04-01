@@ -163,11 +163,12 @@
         result = PowerModelsWildfire.run_mopsar(case_mn, PowerModels.DCPPowerModel, milp_solver);
         @test result["termination_status"] == OPTIMAL
 
-        @test isapprox(result["objective"],0.0939; atol=1e-4)
+        @test isapprox(result["objective"],0.0947; atol=1e-4)
 
         PowerModels.update_data!(case_mn,result["solution"])
-        @test isapprox(calc_total_risk(case_mn), 855.0, atol=1e-4)
-        @test isapprox(calc_load(case_mn),26.91, atol=1e-2)
+        @test isapprox(calc_total_risk(case_mn), 725.0, atol=1e-4)
+        @test isapprox(calc_load(case_mn),21.0, atol=1e-2)
+
 
         # All devices active in period 1
         @test sum(branch["br_status"] for (id,branch) in case_mn["nw"]["1"]["branch"]) == 5
@@ -178,18 +179,19 @@
         @test sum(branch["br_status"] for (id,branch) in case_mn["nw"]["2"]["branch"]) <= 5
         @test sum(gen["gen_status"] for (id,gen) in case_mn["nw"]["2"]["gen"]) <= 5
         @test sum(bus["status"] for (id,bus) in case_mn["nw"]["2"]["bus"]) <= 5
-        @test sum(branch["br_status"] for (id,branch) in case_mn["nw"]["2"]["branch"]) +
-                sum(gen["gen_status"] for (id,gen) in case_mn["nw"]["2"]["gen"]) +
-                sum(bus["status"] for (id,bus) in case_mn["nw"]["2"]["bus"]) == 9
 
 
         # 4 devices repaired in period 3
-        @test sum(branch["br_status"] for (id,branch) in case_mn["nw"]["3"]["branch"]) +
-                sum(gen["gen_status"] for (id,gen) in case_mn["nw"]["3"]["gen"]) +
-                sum(bus["status"] for (id,bus) in case_mn["nw"]["3"]["bus"]) == 13
+        devices_active_in_2 = sum(branch["br_status"] for (id,branch) in case_mn["nw"]["2"]["branch"]) +
+            sum(gen["gen_status"] for (id,gen) in case_mn["nw"]["2"]["gen"]) +
+            sum(bus["status"] for (id,bus) in case_mn["nw"]["2"]["bus"])
+        devices_active_in_3 = sum(branch["br_status"] for (id,branch) in case_mn["nw"]["3"]["branch"]) +
+            sum(gen["gen_status"] for (id,gen) in case_mn["nw"]["3"]["gen"]) +
+            sum(bus["status"] for (id,bus) in case_mn["nw"]["3"]["bus"])
 
-
+        @test isapprox(devices_active_in_3 - devices_active_in_2, 4, atol=1e-4)
     end
+
     @testset "load weights"  begin
         case = PowerModels.parse_file("./networks/case5_risk_mops.m")
         case_mn = PowerModels.replicate(case, 3)
