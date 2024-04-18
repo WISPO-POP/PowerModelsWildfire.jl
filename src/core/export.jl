@@ -25,8 +25,8 @@ end
 # `using PowerModelsWildfire`
 
 # so that users do not need to import JuMP to use a solver with PowerModelsWildfire
-import JuMP: with_optimizer
-export with_optimizer
+import JuMP: optimizer_with_attributes
+export optimizer_with_attributes
 
 import JuMP: TerminationStatusCode
 export TerminationStatusCode
