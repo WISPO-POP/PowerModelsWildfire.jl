@@ -107,7 +107,8 @@ function constraint_voltage_magnitude_sqr_on_off(pm::_PM.AbstractPowerModel, n::
 end
 
 function constraint_load_served(pm::_PM.AbstractPowerModel)
-    threshold= _PM.ref(pm, :threshold)
+    nw1 = first(_PM.nw_ids(pm))
+    threshold= _PM.ref(pm, nw1, :threshold)
     total_demand = sum(sum(load["pd"] for (id,load) in  _PM.ref(pm, nwid, :load)) for nwid in _PM.nw_ids(pm))
     z_demand = Dict(nwid => _PM.var(pm, nwid, :z_demand) for nwid in _PM.nw_ids(pm))
 
@@ -118,3 +119,25 @@ function constraint_load_served(pm::_PM.AbstractPowerModel)
         ) >= threshold*total_demand
     )
 end
+
+function consistent_shutoff_variables(pm::_PM.AbstractPowerModel)
+    nw1 = first(_PM.nw_ids(pm))
+    for nwid in _PM.nw_ids(pm)
+        for i in _PM.ids(pm, nwid, :branch)
+            z_branch_1 = _PM.var(pm, nw1, :z_branch, i)
+            z_branch_nwid = _PM.var(pm, nwid, :z_branch, i)
+            JuMP.@constraint(pm.model, z_branch_1 == z_branch_nwid)
+        end
+        for i in _PM.ids(pm, nwid, :gen)
+            z_gen_1 = _PM.var(pm, nw1, :z_gen, i)
+            z_gen_nwid = _PM.var(pm, nwid, :z_gen, i)
+            JuMP.@constraint(pm.model, z_gen_1 == z_gen_nwid)
+        end
+        for i in _PM.ids(pm, nwid, :bus)
+            z_bus_1 = _PM.var(pm, nw1, :z_bus, i)
+            z_bus_nwid = _PM.var(pm, nwid, :z_bus, i)
+            JuMP.@constraint(pm.model, z_bus_1 == z_bus_nwid)
+        end
+    end
+end
+
